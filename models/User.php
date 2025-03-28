@@ -12,8 +12,13 @@ class User {
     }
 
     public function findByUsername($username) {
-        $stmt = $this->db->prepare("SELECT id, username, password FROM users WHERE username = ?");
-        $stmt->execute([$username]);
-        return $stmt->fetch();
+        try {
+            $stmt = $this->db->prepare("SELECT ID, usuario, pass FROM jescadb_usuarios WHERE usuario = ? AND ACTIVO = 1");
+            $stmt->execute([$username]);
+            return $stmt->fetch();
+        } catch (\PDOException $e) {
+            error_log("Error al buscar usuario: " . $e->getMessage());
+            return false;
+        }
     }
 }
