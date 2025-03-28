@@ -1,0 +1,10 @@
+{
+    "require": {
+        "smalot/pdf-parser": "2.7.0"
+    },
+    "autoload": {
+        "psr-4": {
+            "Smalot\\PdfParser\\": "vendor/smalot/pdf-parser/"
+        }
+    }
+}

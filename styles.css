@@ -1,0 +1,150 @@
+body {
+    background-color: #f8f9fa;
+    font-family: Arial, sans-serif;
+}
+
+h1 {
+    color: #343a40;
+    margin-bottom: 20px;
+}
+
+.form-label {
+    font-weight: bold;
+}
+
+.table {
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.table th {
+    background-color: #343a40;
+    color: white;
+}
+
+.btn {
+    margin-right: 10px;
+}
+
+.alert {
+    margin-bottom: 20px;
+}
+
+.details {
+    background-color: white;
+    padding: 20px;
+    border-radius: 5px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+.details p {
+    margin: 10px 0;
+}
+
+.details strong {
+    width: 200px;
+    display: inline-block;
+    font-weight: bold;
+}
+
+/* Estilos para las columnas en view.php */
+.details p {
+    margin: 0;
+    padding: 10px;
+    background-color: #f8f9fa; /* Fondo suave para toda la celda */
+    border-bottom: 1px solid #ddd; /* Línea sutil para separar campos */
+}
+
+.details p strong {
+    color: #343a40;
+    background-color: #ced4da;
+    padding: 2px 6px;
+    border-radius: 3px;
+    display: inline-block;
+    min-width: 150px;
+}
+
+.details p span.value {
+    color: #495057; /* Gris claro para los valores, consistente con el fondo de las etiquetas */
+}
+
+/* Eliminar borde en el último elemento de cada columna */
+.details .col-12:last-child p,
+.details .col-sm-6:last-child p,
+.details .col-md-4:last-child p,
+.details .col-lg-3:last-child p {
+    border-bottom: none;
+}
+
+/* Estilos para las columnas en view.php y edit.php */
+.details p, .form-details .form-group {
+    margin: 0;
+    padding: 10px;
+    background-color: #f8f9fa; /* Fondo suave para toda la celda */
+    border-bottom: 1px solid #ddd; /* Línea sutil para separar campos */
+}
+
+.details p strong, .form-details .form-group label {
+    color: #343a40;
+    background-color: #ced4da;
+    padding: 2px 6px;
+    border-radius: 3px;
+    display: inline-block;
+    min-width: 150px;
+}
+
+.details p span.value, .form-details .form-group input, 
+.form-details .form-group select, .form-details .form-group textarea {
+    color: #495057; /* Gris medio para los valores */
+}
+
+/* Eliminar borde en el último elemento de cada columna */
+.details .col-12:last-child p, .details .col-sm-6:last-child p,
+.details .col-md-4:last-child p, .details .col-lg-3:last-child p,
+.form-details .col-12:last-child .form-group, .form-details .col-sm-6:last-child .form-group,
+.form-details .col-md-4:last-child .form-group, .form-details .col-lg-3:last-child .form-group {
+    border-bottom: none;
+}
+
+/* Ajustes para inputs y selectores */
+.form-details .form-group input, .form-details .form-group select, 
+.form-details .form-group textarea {
+    width: 100%;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 5px;
+}
+
+/* Estilos para checkboxes en edit.php */
+.form-details .checkbox-group {
+    padding: 10px;
+    background-color: #f8f9fa; /* Fondo suave */
+    border-bottom: 1px solid #ddd; /* Línea para consistencia */
+}
+
+.form-details .checkbox-group label {
+    color: #343a40;
+    background-color: #ced4da;
+    padding: 2px 6px;
+    border-radius: 3px;
+    display: inline-block;
+    min-width: 150px;
+    margin-bottom: 5px; /* Espacio entre etiquetas si se apilan */
+}
+
+.form-details .checkbox-group .form-check {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+}
+
+.form-details .checkbox-group .form-check-input {
+    width: 20px; /* Tamaño cuadrado más grande */
+    height: 20px;
+    margin-right: 10px; /* Espacio entre checkbox y texto */
+    border: 1px solid #495057; /* Borde gris medio */
+}
+
+/* Eliminar borde en el último grupo de checkboxes */
+.form-details .checkbox-group:last-child {
+    border-bottom: none;
+}
