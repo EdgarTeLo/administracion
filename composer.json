@@ -1,0 +1,14 @@
+{
+    "name": "edgartelo/administracion",
+    "description": "Sistema de administración en PHP",
+    "require": {
+        "vlucas/phpdotenv": "^5.5"
+    },
+    "autoload": {
+        "psr-4": {
+            "App\\Config\\": "config/",
+            "App\\Controllers\\": "controllers/",
+            "App\\Models\\": "models/"
+        }
+    }
+}

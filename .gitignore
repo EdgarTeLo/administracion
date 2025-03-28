@@ -1,3 +1,6 @@
-facturas/uploads/
-facturas/uploads_oc/
-facturas/vendor/
+views/facturas/uploads/
+views/facturas/uploads_oc/
+views/facturas/vendor/
+vendor/
+*.env
+*.log
