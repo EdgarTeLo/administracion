@@ -2,6 +2,9 @@
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use Dotenv\Dotenv;
+use App\Controllers\AuthController;
+use App\Controllers\FacturasController;
+use App\Controllers\PersonalController;
 
 $dotenv = Dotenv::createImmutable(__DIR__ . '/..');
 $dotenv->load();
@@ -16,28 +19,23 @@ $uri = trim($uri, '/');
 switch ($uri) {
     case '':
     case 'login':
-        require __DIR__ . '/../controllers/AuthController.php';
-        $controller = new App\Controllers\AuthController();
+        $controller = new AuthController();
         $controller->login();
         break;
     case 'logout':
-        require __DIR__ . '/../controllers/AuthController.php';
-        $controller = new App\Controllers\AuthController();
+        $controller = new AuthController();
         $controller->logout();
         break;
     case 'dashboard':
-        require __DIR__ . '/../controllers/AuthController.php';
-        $controller = new App\Controllers\AuthController();
+        $controller = new AuthController();
         $controller->dashboard();
         break;
     case 'facturas':
-        require __DIR__ . '/../controllers/FacturasController.php';
-        $controller = new App\Controllers\FacturasController();
+        $controller = new FacturasController();
         $controller->index();
         break;
     case 'personal':
-        require __DIR__ . '/../controllers/PersonalController.php';
-        $controller = new App\Controllers\PersonalController();
+        $controller = new PersonalController();
         $controller->index();
         break;
     default:

@@ -12,3 +12,8 @@
         }
     }
 }
+
+"scripts": {
+    "post-update-cmd": "composer dump-autoload",
+    "post-install-cmd": "composer dump-autoload"
+}
