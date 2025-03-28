@@ -10,10 +10,10 @@
             "App\\Controllers\\": "controllers/",
             "App\\Models\\": "models/"
         }
+    },
+    "scripts": {
+    "post-update-cmd": "composer dump-autoload",
+    "post-install-cmd": "composer dump-autoload"
     }
 }
 
-"scripts": {
-    "post-update-cmd": "composer dump-autoload",
-    "post-install-cmd": "composer dump-autoload"
-}
