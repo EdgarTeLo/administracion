@@ -51,7 +51,6 @@ class Factura {
             }
 
             $namespaces = $xml->getNamespaces(true);
-            // Depuración: Mostrar los namespaces disponibles
             error_log("Namespaces disponibles: " . print_r($namespaces, true));
 
             if (!isset($namespaces['cfdi'])) {
@@ -61,20 +60,26 @@ class Factura {
             $cfdi = $xml->children($namespaces['cfdi']);
             $tfdNamespace = $namespaces['tfd'] ?? null;
             $tfd = null;
-            if ($tfdNamespace) {
-                $tfd = $xml->children($tfdNamespace)->TimbreFiscalDigital ?? null;
+
+            // Intentar encontrar el nodo TimbreFiscalDigital dentro de Complemento
+            if ($tfdNamespace && isset($cfdi->Complemento)) {
+                $complemento = $cfdi->Complemento;
+                $tfd = $complemento->children($tfdNamespace)->TimbreFiscalDigital ?? null;
             }
 
             if ($tfd === null) {
                 error_log("Nodo TimbreFiscalDigital no encontrado en el XML.");
-                $folioFiscal = '';
-            } else {
-                $folioFiscal = (string)($tfd->attributes()['UUID'] ?? '');
+                throw new \Exception("El XML no contiene un nodo TimbreFiscalDigital válido. Asegúrate de que sea un CFDI válido.");
+            }
+
+            $folioFiscal = (string)($tfd->attributes()['UUID'] ?? '');
+            if (empty($folioFiscal)) {
+                throw new \Exception("El UUID del TimbreFiscalDigital no está definido.");
             }
 
             $factura = [
                 'fecha' => (string)($cfdi->attributes()['Fecha'] ?? '0000-01-01'),
-                'fact' => (string)($cfdi->attributes()['Folio'] ?? ''),
+                'fact' => (string)($cfdi->attributes()['Folio'] ?? $folioFiscal), // Usar UUID si Folio no está definido
                 'folio_fiscal' => $folioFiscal,
                 'cliente' => (string)($cfdi->Receptor->attributes()['Nombre'] ?? ''),
                 'subtotal' => (float)($cfdi->attributes()['SubTotal'] ?? 0.00),
@@ -85,10 +90,23 @@ class Factura {
                 'estado' => 'activa'
             ];
 
+            // Validar que 'fact' no esté vacío
+            if (empty($factura['fact'])) {
+                $factura['fact'] = $folioFiscal; // Usar UUID como número de factura si Folio está vacío
+            }
+
+            // Verificar si ya existe una factura con el mismo número
+            $query = "SELECT COUNT(*) FROM facturas WHERE fact = :fact";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([':fact' => $factura['fact']]);
+            if ($stmt->fetchColumn() > 0) {
+                throw new \Exception("Ya existe una factura con el número {$factura['fact']}.");
+            }
+
             // Calcular IVA desde los impuestos
             if (isset($cfdi->Impuestos->Traslados->Traslado)) {
                 foreach ($cfdi->Impuestos->Traslados->Traslado as $traslado) {
-                    if ((string)$traslado->attributes()['Impuesto'] === '002') { // IVA
+                    if ((string)$traslado->attributes()['Impuesto'] === '002') {
                         $factura['iva'] += (float)$traslado->attributes()['Importe'];
                     }
                 }
@@ -128,7 +146,7 @@ class Factura {
             return true;
         } catch (\Exception $e) {
             error_log("Error al procesar XML: " . $e->getMessage());
-            return false;
+            return $e->getMessage();
         }
     }
 
@@ -168,7 +186,7 @@ class Factura {
             return true;
         } catch (\Exception $e) {
             error_log("Error al procesar CSV: " . $e->getMessage());
-            return false;
+            return $e->getMessage();
         }
     }
 
