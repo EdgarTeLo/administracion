@@ -17,6 +17,10 @@ class FacturasController {
         }
 
         $facturas = $this->facturaModel->getAll();
+        if (isset($facturas['error'])) {
+            $error = $facturas['error'];
+            $facturas = [];
+        }
         require_once __DIR__ . '/../views/facturas/index.php';
     }
 
@@ -30,16 +34,40 @@ class FacturasController {
             if (isset($_FILES['file']) && $_FILES['file']['error'] === UPLOAD_ERR_OK) {
                 $fileType = $_POST['file_type'] ?? '';
                 $fileTmpPath = $_FILES['file']['tmp_name'];
+                $fileName = $_FILES['file']['name'];
+                $uploadDir = __DIR__ . '/../public/uploads/';
+                $uploadPath = $uploadDir . basename($fileName);
 
-                if ($fileType === 'xml') {
-                    $success = $this->facturaModel->processXml($fileTmpPath);
-                    $message = $success ? "Factura procesada exitosamente." : "Error al procesar el archivo XML.";
-                } elseif ($fileType === 'csv') {
-                    $success = $this->facturaModel->processCsv($fileTmpPath);
-                    $message = $success ? "Orden de compra procesada exitosamente." : "Error al procesar el archivo CSV.";
-                } else {
+                if (!is_dir($uploadDir)) {
+                    mkdir($uploadDir, 0755, true);
+                }
+
+                if (!move_uploaded_file($fileTmpPath, $uploadPath)) {
                     $success = false;
-                    $message = "Tipo de archivo no válido.";
+                    $message = "Error al mover el archivo al directorio de uploads.";
+                } else {
+                    if ($fileType === 'xml') {
+                        $result = $this->facturaModel->processXml($uploadPath);
+                        if ($result === true) {
+                            $success = true;
+                            $message = "Factura procesada exitosamente. Archivo guardado en: uploads/" . basename($fileName);
+                        } else {
+                            $success = false;
+                            $message = "Error al procesar el archivo XML: " . $result;
+                        }
+                    } elseif ($fileType === 'csv') {
+                        $result = $this->facturaModel->processCsv($uploadPath);
+                        if ($result === true) {
+                            $success = true;
+                            $message = "Orden de compra procesada exitosamente. Archivo guardado en: uploads/" . basename($fileName);
+                        } else {
+                            $success = false;
+                            $message = "Error al procesar el archivo CSV: " . $result;
+                        }
+                    } else {
+                        $success = false;
+                        $message = "Tipo de archivo no válido.";
+                    }
                 }
             } else {
                 $success = false;

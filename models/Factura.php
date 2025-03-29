@@ -38,8 +38,7 @@ class Factura {
             $stmt->execute();
             return $stmt->fetchAll();
         } catch (\PDOException $e) {
-            error_log("Error al obtener facturas: " . $e->getMessage());
-            return [];
+            return ['error' => "Error al obtener facturas: " . $e->getMessage()];
         }
     }
 
@@ -51,8 +50,6 @@ class Factura {
             }
 
             $namespaces = $xml->getNamespaces(true);
-            error_log("Namespaces disponibles: " . print_r($namespaces, true));
-
             if (!isset($namespaces['cfdi'])) {
                 throw new \Exception("El namespace 'cfdi' no está definido en el XML.");
             }
@@ -61,13 +58,13 @@ class Factura {
             $tfdNamespace = $namespaces['tfd'] ?? null;
             $tfd = null;
 
+            // Intentar encontrar el nodo TimbreFiscalDigital dentro de Complemento
             if ($tfdNamespace && isset($cfdi->Complemento)) {
                 $complemento = $cfdi->Complemento;
                 $tfd = $complemento->children($tfdNamespace)->TimbreFiscalDigital ?? null;
             }
 
             if ($tfd === null) {
-                error_log("Nodo TimbreFiscalDigital no encontrado en el XML.");
                 throw new \Exception("El XML no contiene un nodo TimbreFiscalDigital válido. Asegúrate de que sea un CFDI válido.");
             }
 
@@ -108,7 +105,6 @@ class Factura {
                 }
             }
 
-            // Guardar la factura y verificar el resultado
             $this->saveFactura($factura);
             $lastInsertId = $this->getLastInsertId();
             if (!$lastInsertId) {
@@ -144,7 +140,6 @@ class Factura {
 
             return true;
         } catch (\Exception $e) {
-            error_log("Error al procesar XML: " . $e->getMessage());
             return $e->getMessage();
         }
     }
@@ -184,7 +179,6 @@ class Factura {
 
             return true;
         } catch (\Exception $e) {
-            error_log("Error al procesar CSV: " . $e->getMessage());
             return $e->getMessage();
         }
     }
@@ -217,7 +211,6 @@ class Factura {
                 throw new \Exception("Fallo al ejecutar la consulta de inserción de factura.");
             }
         } catch (\PDOException $e) {
-            error_log("Error al guardar factura: " . $e->getMessage());
             throw new \Exception("Error al guardar la factura en la base de datos: " . $e->getMessage());
         }
     }
@@ -252,7 +245,6 @@ class Factura {
                 throw new \Exception("Fallo al ejecutar la consulta de inserción de ítem de factura.");
             }
         } catch (\PDOException $e) {
-            error_log("Error al guardar ítem de factura: " . $e->getMessage());
             throw new \Exception("Error al guardar el ítem de factura: " . $e->getMessage());
         }
     }
@@ -277,7 +269,6 @@ class Factura {
                 throw new \Exception("Fallo al ejecutar la consulta de inserción de orden de compra.");
             }
         } catch (\PDOException $e) {
-            error_log("Error al guardar orden de compra: " . $e->getMessage());
             throw new \Exception("Error al guardar la orden de compra: " . $e->getMessage());
         }
     }
@@ -303,7 +294,6 @@ class Factura {
                 throw new \Exception("Fallo al ejecutar la consulta de inserción de ítem de orden de compra.");
             }
         } catch (\PDOException $e) {
-            error_log("Error al guardar ítem de orden de compra: " . $e->getMessage());
             throw new \Exception("Error al guardar el ítem de orden de compra: " . $e->getMessage());
         }
     }
