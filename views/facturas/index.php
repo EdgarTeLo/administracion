@@ -11,19 +11,21 @@
     <main>
         <h1>Lista de Facturas</h1>
         <?php if (empty($facturas)): ?>
-            <p>No hay facturas registradas.</p>
+            <p>No hay facturas activas registradas.</p>
         <?php else: ?>
             <table border="1">
                 <thead>
                     <tr>
                         <th>ID</th>
                         <th>Fecha</th>
-                        <th>Folio</th>
+                        <th>Número de Factura</th>
+                        <th>Folio Fiscal</th>
+                        <th>Cliente</th>
                         <th>Subtotal</th>
+                        <th>IVA</th>
                         <th>Total</th>
-                        <th>Emisor</th>
-                        <th>Receptor</th>
-                        <th>UUID</th>
+                        <th>Fecha de Pago</th>
+                        <th>Estado</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -31,12 +33,14 @@
                         <tr>
                             <td><?php echo htmlspecialchars($factura['id']); ?></td>
                             <td><?php echo htmlspecialchars($factura['fecha']); ?></td>
-                            <td><?php echo htmlspecialchars($factura['folio']); ?></td>
+                            <td><?php echo htmlspecialchars($factura['numero_factura']); ?></td>
+                            <td><?php echo htmlspecialchars($factura['folio_fiscal']); ?></td>
+                            <td><?php echo htmlspecialchars($factura['cliente']); ?></td>
                             <td><?php echo htmlspecialchars($factura['subtotal']); ?></td>
+                            <td><?php echo htmlspecialchars($factura['iva']); ?></td>
                             <td><?php echo htmlspecialchars($factura['total']); ?></td>
-                            <td><?php echo htmlspecialchars($factura['emisor']); ?></td>
-                            <td><?php echo htmlspecialchars($factura['receptor']); ?></td>
-                            <td><?php echo htmlspecialchars($factura['uuid']); ?></td>
+                            <td><?php echo htmlspecialchars($factura['fecha_pago'] ?: 'N/A'); ?></td>
+                            <td><?php echo htmlspecialchars($factura['estado']); ?></td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>

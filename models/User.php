@@ -7,7 +7,7 @@ class User {
     private $db;
 
     public function __construct() {
-        $database = Database::getInstance();
+        $database = Database::getInstance('jesca01_jesca');
         $this->db = $database->getConnection();
     }
 

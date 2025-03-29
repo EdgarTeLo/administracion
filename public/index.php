@@ -34,6 +34,10 @@ switch ($uri) {
         $controller = new FacturasController();
         $controller->index();
         break;
+    case 'facturas/upload':
+        $controller = new FacturasController();
+        $controller->upload();
+        break;
     case 'personal':
         $controller = new PersonalController();
         $controller->index();

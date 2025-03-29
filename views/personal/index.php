@@ -20,13 +20,13 @@
                         <th>Nombre</th>
                         <th>Apellido Paterno</th>
                         <th>Apellido Materno</th>
+                        <th>Fecha de Nacimiento</th>
                         <th>CURP</th>
-                        <th>RFC</th>
                         <th>Teléfono</th>
                         <th>Email</th>
                         <th>Empresa</th>
                         <th>Especialidad</th>
-                        <th>Área de Trabajo</th>
+                        <th>Área Laboral</th>
                         <th>Fecha de Ingreso</th>
                         <th>Fecha de Baja</th>
                     </tr>
@@ -34,19 +34,19 @@
                 <tbody>
                     <?php foreach ($empleados as $empleado): ?>
                         <tr>
-                            <td><?php echo htmlspecialchars($empleado['ID']); ?></td>
+                            <td><?php echo htmlspecialchars($empleado['IDPERSONAL']); ?></td>
                             <td><?php echo htmlspecialchars($empleado['NOMBRE']); ?></td>
                             <td><?php echo htmlspecialchars($empleado['APELLIDOPATERNO']); ?></td>
                             <td><?php echo htmlspecialchars($empleado['APELLIDOMATERNO']); ?></td>
+                            <td><?php echo htmlspecialchars($empleado['FECHANACIMIENTO']); ?></td>
                             <td><?php echo htmlspecialchars($empleado['CURP']); ?></td>
-                            <td><?php echo htmlspecialchars($empleado['RFC']); ?></td>
                             <td><?php echo htmlspecialchars($empleado['TELMOVIL']); ?></td>
                             <td><?php echo htmlspecialchars($empleado['EMAIL']); ?></td>
                             <td><?php echo htmlspecialchars($empleado['EMPRESA']); ?></td>
                             <td><?php echo htmlspecialchars($empleado['ESPECIALIDAD']); ?></td>
-                            <td><?php echo htmlspecialchars($empleado['AREADETRABAJO']); ?></td>
+                            <td><?php echo htmlspecialchars($empleado['AREALABORAL']); ?></td>
                             <td><?php echo htmlspecialchars($empleado['FECHAINGRESO']); ?></td>
-                            <td><?php echo htmlspecialchars($empleado['FECHABAJA'] ?: 'N/A'); ?></td>
+                            <td><?php echo htmlspecialchars($empleado['FECHADEBAJA'] ?: 'N/A'); ?></td>
                         </tr>
                     <?php endforeach; ?>
                 </tbody>

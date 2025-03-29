@@ -2,7 +2,8 @@
     "name": "edgartelo/administracion",
     "description": "Sistema de administración en PHP",
     "require": {
-        "vlucas/phpdotenv": "^5.5"
+        "vlucas/phpdotenv": "^5.5",
+        "league/csv": "^9.23"
     },
     "autoload": {
         "psr-4": {
@@ -16,4 +17,3 @@
     "post-install-cmd": "composer dump-autoload"
     }
 }
-

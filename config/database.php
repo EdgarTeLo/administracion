@@ -13,23 +13,23 @@ class Database {
     private $username;
     private $password;
     private $conn;
-    private static $instance = null;
+    private static $instances = [];
 
-    private function __construct() {
+    private function __construct($dbname) {
         $dotenv = Dotenv::createImmutable(__DIR__ . '/..');
         $dotenv->load();
 
         $this->host = $_ENV['DB_HOST'];
-        $this->dbname = $_ENV['DB_NAME'];
+        $this->dbname = $dbname;
         $this->username = $_ENV['DB_USER'];
         $this->password = $_ENV['DB_PASS'];
     }
 
-    public static function getInstance() {
-        if (self::$instance === null) {
-            self::$instance = new self();
+    public static function getInstance($dbname) {
+        if (!isset(self::$instances[$dbname])) {
+            self::$instances[$dbname] = new self($dbname);
         }
-        return self::$instance;
+        return self::$instances[$dbname];
     }
 
     public function getConnection() {
@@ -46,8 +46,8 @@ class Database {
             $this->conn->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             $this->conn->exec("set names utf8");
         } catch (PDOException $e) {
-            error_log("Error de conexión: " . $e->getMessage());
-            die("No se pudo conectar a la base de datos. Por favor, intenta de nuevo más tarde.");
+            error_log("Error de conexión a {$this->dbname}: " . $e->getMessage());
+            die("No se pudo conectar a la base de datos {$this->dbname}. Por favor, intenta de nuevo más tarde.");
         }
 
         return $this->conn;
