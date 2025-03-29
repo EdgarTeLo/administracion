@@ -2,7 +2,7 @@
 require_once __DIR__ . '/../vendor/autoload.php';
 
 use Dotenv\Dotenv;
-use App\Controllers\AuthController; // Verify that the AuthController class exists in this namespace and is autoloaded
+use App\Controllers\AuthController;
 use App\Controllers\FacturasController;
 use App\Controllers\PersonalController;
 
