@@ -61,7 +61,6 @@ class Factura {
             $tfdNamespace = $namespaces['tfd'] ?? null;
             $tfd = null;
 
-            // Intentar encontrar el nodo TimbreFiscalDigital dentro de Complemento
             if ($tfdNamespace && isset($cfdi->Complemento)) {
                 $complemento = $cfdi->Complemento;
                 $tfd = $complemento->children($tfdNamespace)->TimbreFiscalDigital ?? null;
@@ -79,7 +78,7 @@ class Factura {
 
             $factura = [
                 'fecha' => (string)($cfdi->attributes()['Fecha'] ?? '0000-01-01'),
-                'fact' => (string)($cfdi->attributes()['Folio'] ?? $folioFiscal), // Usar UUID si Folio no está definido
+                'fact' => (string)($cfdi->attributes()['Folio'] ?? $folioFiscal),
                 'folio_fiscal' => $folioFiscal,
                 'cliente' => (string)($cfdi->Receptor->attributes()['Nombre'] ?? ''),
                 'subtotal' => (float)($cfdi->attributes()['SubTotal'] ?? 0.00),
@@ -90,12 +89,10 @@ class Factura {
                 'estado' => 'activa'
             ];
 
-            // Validar que 'fact' no esté vacío
             if (empty($factura['fact'])) {
-                $factura['fact'] = $folioFiscal; // Usar UUID como número de factura si Folio está vacío
+                $factura['fact'] = $folioFiscal;
             }
 
-            // Verificar si ya existe una factura con el mismo número
             $query = "SELECT COUNT(*) FROM facturas WHERE fact = :fact";
             $stmt = $this->db->prepare($query);
             $stmt->execute([':fact' => $factura['fact']]);
@@ -103,7 +100,6 @@ class Factura {
                 throw new \Exception("Ya existe una factura con el número {$factura['fact']}.");
             }
 
-            // Calcular IVA desde los impuestos
             if (isset($cfdi->Impuestos->Traslados->Traslado)) {
                 foreach ($cfdi->Impuestos->Traslados->Traslado as $traslado) {
                     if ((string)$traslado->attributes()['Impuesto'] === '002') {
@@ -112,14 +108,17 @@ class Factura {
                 }
             }
 
-            // Guardar la factura
+            // Guardar la factura y verificar el resultado
             $this->saveFactura($factura);
+            $lastInsertId = $this->getLastInsertId();
+            if (!$lastInsertId) {
+                throw new \Exception("No se pudo guardar la factura en la base de datos.");
+            }
 
-            // Procesar ítems de la factura
             if (isset($cfdi->Conceptos->Concepto)) {
                 foreach ($cfdi->Conceptos->Concepto as $concepto) {
                     $item = [
-                        'factura_id' => $this->getLastInsertId(),
+                        'factura_id' => $lastInsertId,
                         'clave_prod_serv' => (string)($concepto->attributes()['ClaveProdServ'] ?? ''),
                         'numero_identificacion' => (string)($concepto->attributes()['NoIdentificacion'] ?? ''),
                         'cantidad' => (float)($concepto->attributes()['Cantidad'] ?? 0.00),
@@ -202,7 +201,7 @@ class Factura {
                 )
             ";
             $stmt = $this->db->prepare($query);
-            $stmt->execute([
+            $result = $stmt->execute([
                 ':fecha' => $factura['fecha'],
                 ':fact' => $factura['fact'],
                 ':folio_fiscal' => $factura['folio_fiscal'],
@@ -214,9 +213,12 @@ class Factura {
                 ':rfc_receptor' => $factura['rfc_receptor'],
                 ':estado' => $factura['estado']
             ]);
+            if (!$result) {
+                throw new \Exception("Fallo al ejecutar la consulta de inserción de factura.");
+            }
         } catch (\PDOException $e) {
             error_log("Error al guardar factura: " . $e->getMessage());
-            throw $e;
+            throw new \Exception("Error al guardar la factura en la base de datos: " . $e->getMessage());
         }
     }
 
@@ -234,7 +236,7 @@ class Factura {
                 )
             ";
             $stmt = $this->db->prepare($query);
-            $stmt->execute([
+            $result = $stmt->execute([
                 ':factura_id' => $item['factura_id'],
                 ':clave_prod_serv' => $item['clave_prod_serv'],
                 ':numero_identificacion' => $item['numero_identificacion'],
@@ -246,9 +248,12 @@ class Factura {
                 ':importe' => $item['importe'],
                 ':importe_iva' => $item['importe_iva']
             ]);
+            if (!$result) {
+                throw new \Exception("Fallo al ejecutar la consulta de inserción de ítem de factura.");
+            }
         } catch (\PDOException $e) {
             error_log("Error al guardar ítem de factura: " . $e->getMessage());
-            throw $e;
+            throw new \Exception("Error al guardar el ítem de factura: " . $e->getMessage());
         }
     }
 
@@ -262,15 +267,18 @@ class Factura {
                 )
             ";
             $stmt = $this->db->prepare($query);
-            $stmt->execute([
+            $result = $stmt->execute([
                 ':numero_oc' => $ordenCompra['numero_oc'],
                 ':total' => $ordenCompra['total'],
                 ':fecha_emision' => $ordenCompra['fecha_emision'],
                 ':proveedor' => $ordenCompra['proveedor']
             ]);
+            if (!$result) {
+                throw new \Exception("Fallo al ejecutar la consulta de inserción de orden de compra.");
+            }
         } catch (\PDOException $e) {
             error_log("Error al guardar orden de compra: " . $e->getMessage());
-            throw $e;
+            throw new \Exception("Error al guardar la orden de compra: " . $e->getMessage());
         }
     }
 
@@ -284,16 +292,19 @@ class Factura {
                 )
             ";
             $stmt = $this->db->prepare($query);
-            $stmt->execute([
+            $result = $stmt->execute([
                 ':orden_compra_id' => $item['orden_compra_id'],
                 ':descripcion' => $item['descripcion'],
                 ':cantidad' => $item['cantidad'],
                 ':precio_unitario' => $item['precio_unitario'],
                 ':importe' => $item['importe']
             ]);
+            if (!$result) {
+                throw new \Exception("Fallo al ejecutar la consulta de inserción de ítem de orden de compra.");
+            }
         } catch (\PDOException $e) {
             error_log("Error al guardar ítem de orden de compra: " . $e->getMessage());
-            throw $e;
+            throw new \Exception("Error al guardar el ítem de orden de compra: " . $e->getMessage());
         }
     }
 
