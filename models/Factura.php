@@ -51,16 +51,34 @@ class Factura {
             }
 
             $namespaces = $xml->getNamespaces(true);
+            // Depuración: Mostrar los namespaces disponibles
+            error_log("Namespaces disponibles: " . print_r($namespaces, true));
+
+            if (!isset($namespaces['cfdi'])) {
+                throw new \Exception("El namespace 'cfdi' no está definido en el XML.");
+            }
+
             $cfdi = $xml->children($namespaces['cfdi']);
-            $tfd = $xml->children($namespaces['tfd'])->TimbreFiscalDigital ?? null;
+            $tfdNamespace = $namespaces['tfd'] ?? null;
+            $tfd = null;
+            if ($tfdNamespace) {
+                $tfd = $xml->children($tfdNamespace)->TimbreFiscalDigital ?? null;
+            }
+
+            if ($tfd === null) {
+                error_log("Nodo TimbreFiscalDigital no encontrado en el XML.");
+                $folioFiscal = '';
+            } else {
+                $folioFiscal = (string)($tfd->attributes()['UUID'] ?? '');
+            }
 
             $factura = [
                 'fecha' => (string)($cfdi->attributes()['Fecha'] ?? '0000-01-01'),
                 'fact' => (string)($cfdi->attributes()['Folio'] ?? ''),
-                'folio_fiscal' => (string)($tfd->attributes()['UUID'] ?? ''),
+                'folio_fiscal' => $folioFiscal,
                 'cliente' => (string)($cfdi->Receptor->attributes()['Nombre'] ?? ''),
                 'subtotal' => (float)($cfdi->attributes()['SubTotal'] ?? 0.00),
-                'iva' => 0.00, // Calcular IVA desde los impuestos
+                'iva' => 0.00,
                 'total' => (float)($cfdi->attributes()['Total'] ?? 0.00),
                 'rfc_emisor' => (string)($cfdi->Emisor->attributes()['Rfc'] ?? ''),
                 'rfc_receptor' => (string)($cfdi->Receptor->attributes()['Rfc'] ?? ''),
@@ -92,10 +110,9 @@ class Factura {
                         'descripcion' => (string)($concepto->attributes()['Descripcion'] ?? ''),
                         'precio_unitario' => (float)($concepto->attributes()['ValorUnitario'] ?? 0.00),
                         'importe' => (float)($concepto->attributes()['Importe'] ?? 0.00),
-                        'importe_iva' => 0.00 // Calcular IVA por ítem si aplica
+                        'importe_iva' => 0.00
                     ];
 
-                    // Calcular IVA por ítem (si aplica)
                     if (isset($concepto->Impuestos->Traslados->Traslado)) {
                         foreach ($concepto->Impuestos->Traslados->Traslado as $traslado) {
                             if ((string)$traslado->attributes()['Impuesto'] === '002') {
@@ -131,7 +148,6 @@ class Factura {
 
                 $this->saveOrdenCompra($ordenCompra);
 
-                // Procesar ítems de la orden de compra (si el CSV los incluye)
                 if (isset($record['items'])) {
                     $items = json_decode($record['items'], true);
                     if (is_array($items)) {

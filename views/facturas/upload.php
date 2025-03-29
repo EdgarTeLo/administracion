@@ -23,7 +23,7 @@
             </select>
             <br>
             <label for="file">Seleccionar Archivo:</label>
-            <input type="file" name="file" id="file" required>
+            <input type="file" name="file" id="file" required accept=".xml,.csv">
             <br>
             <button type="submit">Subir</button>
         </form>
