@@ -13,32 +13,174 @@ class Factura {
         $this->db = $database->getConnection();
     }
 
-    public function getAll() {
+    public function getAll($cliente = '', $estado = 'activa') {
+        try {
+            $query = "
+                SELECT 
+                    f.id, 
+                    f.fecha, 
+                    f.fact AS numero_factura, 
+                    f.folio_fiscal, 
+                    f.cliente, 
+                    f.subtotal, 
+                    f.iva, 
+                    f.total, 
+                    f.fecha_pago, 
+                    f.estado,
+                    f.orden_compra,
+                    oc.numero_oc
+                FROM 
+                    facturas f
+                LEFT JOIN 
+                    ordenes_compra oc ON f.orden_compra = oc.numero_oc
+                WHERE 
+                    1=1
+            ";
+            $params = [];
+
+            if ($cliente) {
+                $query .= " AND f.cliente LIKE :cliente";
+                $params[':cliente'] = "%$cliente%";
+            }
+
+            if ($estado) {
+                $query .= " AND f.estado = :estado";
+                $params[':estado'] = $estado;
+            }
+
+            $query .= " ORDER BY f.fecha DESC";
+
+            $stmt = $this->db->prepare($query);
+            $stmt->execute($params);
+            return $stmt->fetchAll();
+        } catch (\PDOException $e) {
+            return ['error' => "Error al obtener facturas: " . $e->getMessage()];
+        }
+    }
+
+    public function getById($id) {
+        try {
+            $query = "
+                SELECT 
+                    f.id, 
+                    f.fecha, 
+                    f.fact AS numero_factura, 
+                    f.folio_fiscal, 
+                    f.cliente, 
+                    f.subtotal, 
+                    f.iva, 
+                    f.total, 
+                    f.fecha_pago, 
+                    f.estado,
+                    f.orden_compra,
+                    oc.numero_oc
+                FROM 
+                    facturas f
+                LEFT JOIN 
+                    ordenes_compra oc ON f.orden_compra = oc.numero_oc
+                WHERE 
+                    f.id = :id
+            ";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([':id' => $id]);
+            return $stmt->fetch();
+        } catch (\PDOException $e) {
+            return ['error' => "Error al obtener factura: " . $e->getMessage()];
+        }
+    }
+
+    public function getItemsByFacturaId($facturaId) {
         try {
             $query = "
                 SELECT 
                     id, 
-                    fecha, 
-                    fact AS numero_factura, 
-                    folio_fiscal, 
-                    cliente, 
-                    subtotal, 
-                    iva, 
-                    total, 
-                    fecha_pago, 
-                    estado
+                    factura_id, 
+                    clave_prod_serv, 
+                    numero_identificacion, 
+                    cantidad, 
+                    clave_unidad, 
+                    descripcion_unidad, 
+                    descripcion, 
+                    precio_unitario, 
+                    importe, 
+                    importe_iva
                 FROM 
-                    facturas
+                    items_factura
                 WHERE 
-                    estado = 'activa'
+                    factura_id = :factura_id
+            ";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([':factura_id' => $facturaId]);
+            return $stmt->fetchAll();
+        } catch (\PDOException $e) {
+            return ['error' => "Error al obtener ítems de factura: " . $e->getMessage()];
+        }
+    }
+
+    public function getAllOrdenesCompra() {
+        try {
+            $query = "
+                SELECT 
+                    id, 
+                    numero_oc, 
+                    total, 
+                    fecha_emision, 
+                    proveedor
+                FROM 
+                    ordenes_compra
                 ORDER BY 
-                    fecha DESC
+                    fecha_emision DESC
             ";
             $stmt = $this->db->prepare($query);
             $stmt->execute();
             return $stmt->fetchAll();
         } catch (\PDOException $e) {
-            return ['error' => "Error al obtener facturas: " . $e->getMessage()];
+            return ['error' => "Error al obtener órdenes de compra: " . $e->getMessage()];
+        }
+    }
+
+    public function getOrdenById($id) {
+        try {
+            $query = "
+                SELECT 
+                    id, 
+                    numero_oc, 
+                    total, 
+                    fecha_emision, 
+                    proveedor
+                FROM 
+                    ordenes_compra
+                WHERE 
+                    id = :id
+            ";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([':id' => $id]);
+            return $stmt->fetch();
+        } catch (\PDOException $e) {
+            return ['error' => "Error al obtener orden de compra: " . $e->getMessage()];
+        }
+    }
+
+    public function getItemsByOrdenId($ordenId) {
+        try {
+            $query = "
+                SELECT 
+                    id, 
+                    orden_compra_id, 
+                    descripcion, 
+                    cantidad, 
+                    precio_unitario, 
+                    importe
+                FROM 
+                    items_ordenes_compra
+                WHERE 
+                    orden_compra_id = :orden_compra_id
+            ";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([':orden_compra_id' => $ordenId]);
+            return $stmt->fetchAll();
+        } catch (\PDOException $e) {
+            return ['error' => "Error al obtener ítems de orden de compra: " . $e->getMessage()];
         }
     }
 
@@ -58,7 +200,6 @@ class Factura {
             $tfdNamespace = $namespaces['tfd'] ?? null;
             $tfd = null;
 
-            // Intentar encontrar el nodo TimbreFiscalDigital dentro de Complemento
             if ($tfdNamespace && isset($cfdi->Complemento)) {
                 $complemento = $cfdi->Complemento;
                 $tfd = $complemento->children($tfdNamespace)->TimbreFiscalDigital ?? null;
@@ -83,7 +224,8 @@ class Factura {
                 'total' => (float)($cfdi->attributes()['Total'] ?? 0.00),
                 'rfc_emisor' => (string)($cfdi->Emisor->attributes()['Rfc'] ?? ''),
                 'rfc_receptor' => (string)($cfdi->Receptor->attributes()['Rfc'] ?? ''),
-                'estado' => 'activa'
+                'estado' => 'activa',
+                'orden_compra' => null // Por ahora, no asociamos con una orden de compra
             ];
 
             if (empty($factura['fact'])) {
@@ -183,15 +325,94 @@ class Factura {
         }
     }
 
+    public function crearFactura($factura) {
+        try {
+            $query = "
+                INSERT INTO facturas (
+                    fecha, fact, folio_fiscal, cliente, subtotal, iva, total, 
+                    fecha_pago, estado, orden_compra
+                ) VALUES (
+                    :fecha, :fact, :folio_fiscal, :cliente, :subtotal, :iva, :total, 
+                    :fecha_pago, :estado, :orden_compra
+                )
+            ";
+            $stmt = $this->db->prepare($query);
+            $result = $stmt->execute([
+                ':fecha' => $factura['fecha'],
+                ':fact' => $factura['fact'],
+                ':folio_fiscal' => $factura['folio_fiscal'],
+                ':cliente' => $factura['cliente'],
+                ':subtotal' => $factura['subtotal'],
+                ':iva' => $factura['iva'],
+                ':total' => $factura['total'],
+                ':fecha_pago' => $factura['fecha_pago'],
+                ':estado' => $factura['estado'],
+                ':orden_compra' => $factura['orden_compra']
+            ]);
+            if (!$result) {
+                throw new \Exception("Fallo al ejecutar la consulta de inserción de factura.");
+            }
+            return true;
+        } catch (\PDOException $e) {
+            return "Error al crear la factura: " . $e->getMessage();
+        }
+    }
+
+    public function crearOrdenCompra($ordenCompra) {
+        try {
+            $query = "
+                INSERT INTO ordenes_compra (
+                    numero_oc, total, fecha_emision, proveedor
+                ) VALUES (
+                    :numero_oc, :total, :fecha_emision, :proveedor
+                )
+            ";
+            $stmt = $this->db->prepare($query);
+            $result = $stmt->execute([
+                ':numero_oc' => $ordenCompra['numero_oc'],
+                ':total' => $ordenCompra['total'],
+                ':fecha_emision' => $ordenCompra['fecha_emision'],
+                ':proveedor' => $ordenCompra['proveedor']
+            ]);
+            if (!$result) {
+                throw new \Exception("Fallo al ejecutar la consulta de inserción de orden de compra.");
+            }
+            return true;
+        } catch (\PDOException $e) {
+            return "Error al crear la orden de compra: " . $e->getMessage();
+        }
+    }
+
+    public function asociarOrdenCompra($facturaId, $ordenCompra) {
+        try {
+            $query = "
+                UPDATE facturas 
+                SET orden_compra = :orden_compra 
+                WHERE id = :id
+            ";
+            $stmt = $this->db->prepare($query);
+            $result = $stmt->execute([
+                ':orden_compra' => $ordenCompra,
+                ':id' => $facturaId
+            ]);
+            if (!$result) {
+                throw new \Exception("Fallo al ejecutar la consulta de actualización.");
+            }
+            return true;
+        } catch (\PDOException $e) {
+            return "Error al asociar la factura: " . $e->getMessage();
+        }
+    }
+
     private function saveFactura($factura) {
         try {
             $query = "
                 INSERT INTO facturas (
                     fecha, fact, folio_fiscal, cliente, subtotal, iva, total, 
-                    rfc_emisor, rfc_receptor, estado
+                    rfc_emisor, rfc_receptor, estado, orden_compra
                 ) VALUES (
                     :fecha, :fact, :folio_fiscal, :cliente, :subtotal, :iva, :total, 
-                    :rfc_emisor, :rfc_receptor, :estado
+                    :rfc_emisor, :rfc_receptor, :estado, :orden_compra
                 )
             ";
             $stmt = $this->db->prepare($query);
@@ -205,7 +426,8 @@ class Factura {
                 ':total' => $factura['total'],
                 ':rfc_emisor' => $factura['rfc_emisor'],
                 ':rfc_receptor' => $factura['rfc_receptor'],
-                ':estado' => $factura['estado']
+                ':estado' => $factura['estado'],
+                ':orden_compra' => $factura['orden_compra']
             ]);
             if (!$result) {
                 throw new \Exception("Fallo al ejecutar la consulta de inserción de factura.");
@@ -300,5 +522,66 @@ class Factura {
 
     private function getLastInsertId() {
         return $this->db->lastInsertId();
+    }
+
+    public function editarFactura($id, $factura) {
+        try {
+            $query = "
+                UPDATE facturas 
+                SET 
+                    fecha = :fecha, 
+                    fact = :fact, 
+                    folio_fiscal = :folio_fiscal, 
+                    cliente = :cliente, 
+                    subtotal = :subtotal, 
+                    iva = :iva, 
+                    total = :total, 
+                    fecha_pago = :fecha_pago, 
+                    estado = :estado, 
+                    orden_compra = :orden_compra
+                WHERE 
+                    id = :id
+            ";
+            $stmt = $this->db->prepare($query);
+            $result = $stmt->execute([
+                ':fecha' => $factura['fecha'],
+                ':fact' => $factura['fact'],
+                ':folio_fiscal' => $factura['folio_fiscal'],
+                ':cliente' => $factura['cliente'],
+                ':subtotal' => $factura['subtotal'],
+                ':iva' => $factura['iva'],
+                ':total' => $factura['total'],
+                ':fecha_pago' => $factura['fecha_pago'],
+                ':estado' => $factura['estado'],
+                ':orden_compra' => $factura['orden_compra'],
+                ':id' => $id
+            ]);
+            if (!$result) {
+                throw new \Exception("Fallo al ejecutar la consulta de actualización de factura.");
+            }
+            return true;
+        } catch (\PDOException $e) {
+            return "Error al actualizar la factura: " . $e->getMessage();
+        }
+    }
+    
+    public function eliminarFactura($id) {
+        try {
+            // Eliminar ítems asociados
+            $query = "DELETE FROM items_factura WHERE factura_id = :id";
+            $stmt = $this->db->prepare($query);
+            $stmt->execute([':id' => $id]);
+    
+            // Eliminar la factura
+            $query = "DELETE FROM facturas WHERE id = :id";
+            $stmt = $this->db->prepare($query);
+            $result = $stmt->execute([':id' => $id]);
+            if (!$result) {
+                throw new \Exception("Fallo al ejecutar la consulta de eliminación de factura.");
+            }
+            return true;
+        } catch (\PDOException $e) {
+            return "Error al eliminar la factura: " . $e->getMessage();
+        }
     }
 }

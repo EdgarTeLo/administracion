@@ -4,3 +4,4 @@ views/facturas/vendor/
 vendor/
 *.env
 *.log
+public/uploads/
