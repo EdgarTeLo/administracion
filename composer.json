@@ -3,7 +3,8 @@
     "description": "Sistema de administración en PHP",
     "require": {
         "vlucas/phpdotenv": "^5.5",
-        "league/csv": "^9.23"
+        "league/csv": "^9.23",
+        "smalot/pdfparser": "^2.12"
     },
     "autoload": {
         "psr-4": {

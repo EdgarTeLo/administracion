@@ -311,7 +311,7 @@ class FacturasController {
             header("Location: " . $_ENV['APP_URL'] . "/login");
             exit();
         }
-
+    
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if (isset($_FILES['file']) && $_FILES['file']['error'] === UPLOAD_ERR_OK) {
                 $fileType = $_POST['file_type'] ?? '';
@@ -319,11 +319,11 @@ class FacturasController {
                 $fileName = $_FILES['file']['name'];
                 $uploadDir = __DIR__ . '/../public/uploads/';
                 $uploadPath = $uploadDir . basename($fileName);
-
+    
                 if (!is_dir($uploadDir)) {
                     mkdir($uploadDir, 0755, true);
                 }
-
+    
                 if (!move_uploaded_file($fileTmpPath, $uploadPath)) {
                     $success = false;
                     $message = "Error al mover el archivo al directorio de uploads.";
@@ -341,10 +341,28 @@ class FacturasController {
                         $result = $this->facturaModel->processCsv($uploadPath);
                         if ($result === true) {
                             $success = true;
-                            $message = "Orden de compra procesada exitosamente. Archivo guardado en: uploads/" . basename($fileName);
+                            $message = "Orden de compra procesada exitosamente (CSV). Archivo guardado en: uploads/" . basename($fileName);
                         } else {
                             $success = false;
                             $message = "Error al procesar el archivo CSV: " . $result;
+                        }
+                    } elseif ($fileType === 'pdf') {
+                        $result = $this->facturaModel->processPdf($uploadPath);
+                        if ($result === true) {
+                            $success = true;
+                            $message = "Orden de compra procesada exitosamente (PDF). Archivo guardado en: uploads/" . basename($fileName);
+                        } else {
+                            $success = false;
+                            $message = "Error al procesar el archivo PDF: " . $result;
+                        }
+                    } elseif ($fileType === 'csv_facturas') {
+                        $result = $this->facturaModel->processCsvFacturas($uploadPath);
+                        if ($result === true) {
+                            $success = true;
+                            $message = "Facturas procesadas exitosamente (CSV). Archivo guardado en: uploads/" . basename($fileName);
+                        } else {
+                            $success = false;
+                            $message = "Error al procesar el archivo CSV de facturas: " . $result;
                         }
                     } else {
                         $success = false;
@@ -356,7 +374,7 @@ class FacturasController {
                 $message = "Error al subir el archivo.";
             }
         }
-
+    
         require_once __DIR__ . '/../views/facturas/upload.php';
     }
 }

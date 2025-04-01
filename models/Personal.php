@@ -26,6 +26,15 @@ class Personal {
                     p.FECHAINGRESO, 
                     p.FECHADEBAJA, 
                     p.ESTADO, 
+                    p.RFC, 
+                    p.NSS, 
+                    p.DIRECCION, 
+                    p.CODIGOPOSTAL, 
+                    p.CIUDAD, 
+                    p.ESTADORESIDENCIA, 
+                    p.PAIS, 
+                    p.FECHAREGISTRO, 
+                    p.OBSERVACIONES, 
                     e.EMPRESA, 
                     esp.ESPECIALIDAD, 
                     al.AREALABORAL 
@@ -65,6 +74,15 @@ class Personal {
                     p.FECHAINGRESO, 
                     p.FECHADEBAJA, 
                     p.ESTADO, 
+                    p.RFC, 
+                    p.NSS, 
+                    p.DIRECCION, 
+                    p.CODIGOPOSTAL, 
+                    p.CIUDAD, 
+                    p.ESTADORESIDENCIA, 
+                    p.PAIS, 
+                    p.FECHAREGISTRO, 
+                    p.OBSERVACIONES, 
                     e.EMPRESA, 
                     esp.ESPECIALIDAD, 
                     al.AREALABORAL 
@@ -92,10 +110,14 @@ class Personal {
             $query = "
                 INSERT INTO personal (
                     NOMBRE, APELLIDOPATERNO, APELLIDOMATERNO, FECHANACIMIENTO, 
-                    CURP, TELMOVIL, EMAIL, FECHAINGRESO, ESTADO
+                    CURP, TELMOVIL, EMAIL, FECHAINGRESO, ESTADO, RFC, NSS, 
+                    DIRECCION, CODIGOPOSTAL, CIUDAD, ESTADORESIDENCIA, PAIS, 
+                    FECHAREGISTRO, OBSERVACIONES
                 ) VALUES (
                     :nombre, :apellido_paterno, :apellido_materno, :fecha_nacimiento, 
-                    :curp, :tel_movil, :email, :fecha_ingreso, :estado
+                    :curp, :tel_movil, :email, :fecha_ingreso, :estado, :rfc, :nss, 
+                    :direccion, :codigopostal, :ciudad, :estadoresidencia, :pais, 
+                    :fecharegistro, :observaciones
                 )
             ";
             $stmt = $this->db->prepare($query);
@@ -108,7 +130,16 @@ class Personal {
                 ':tel_movil' => $empleado['tel_movil'],
                 ':email' => $empleado['email'],
                 ':fecha_ingreso' => $empleado['fecha_ingreso'],
-                ':estado' => $empleado['estado']
+                ':estado' => $empleado['estado'],
+                ':rfc' => $empleado['rfc'],
+                ':nss' => $empleado['nss'],
+                ':direccion' => $empleado['direccion'],
+                ':codigopostal' => $empleado['codigopostal'],
+                ':ciudad' => $empleado['ciudad'],
+                ':estadoresidencia' => $empleado['estadoresidencia'],
+                ':pais' => $empleado['pais'],
+                ':fecharegistro' => date('Y-m-d H:i:s'),
+                ':observaciones' => $empleado['observaciones']
             ]);
             if (!$result) {
                 throw new \Exception("Fallo al ejecutar la consulta de inserción de empleado.");
@@ -133,7 +164,15 @@ class Personal {
                     EMAIL = :email, 
                     FECHAINGRESO = :fecha_ingreso, 
                     FECHADEBAJA = :fecha_baja, 
-                    ESTADO = :estado
+                    ESTADO = :estado, 
+                    RFC = :rfc, 
+                    NSS = :nss, 
+                    DIRECCION = :direccion, 
+                    CODIGOPOSTAL = :codigopostal, 
+                    CIUDAD = :ciudad, 
+                    ESTADORESIDENCIA = :estadoresidencia, 
+                    PAIS = :pais, 
+                    OBSERVACIONES = :observaciones
                 WHERE 
                     IDPERSONAL = :id
             ";
@@ -149,6 +188,14 @@ class Personal {
                 ':fecha_ingreso' => $empleado['fecha_ingreso'],
                 ':fecha_baja' => $empleado['fecha_baja'],
                 ':estado' => $empleado['estado'],
+                ':rfc' => $empleado['rfc'],
+                ':nss' => $empleado['nss'],
+                ':direccion' => $empleado['direccion'],
+                ':codigopostal' => $empleado['codigopostal'],
+                ':ciudad' => $empleado['ciudad'],
+                ':estadoresidencia' => $empleado['estadoresidencia'],
+                ':pais' => $empleado['pais'],
+                ':observaciones' => $empleado['observaciones'],
                 ':id' => $id
             ]);
             if (!$result) {

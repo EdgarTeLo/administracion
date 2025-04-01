@@ -35,8 +35,17 @@
                             <th>Apellido Materno</th>
                             <th>Fecha de Nacimiento</th>
                             <th>CURP</th>
+                            <th>RFC</th>
+                            <th>NSS</th>
                             <th>Teléfono</th>
                             <th>Email</th>
+                            <th>Dirección</th>
+                            <th>Código Postal</th>
+                            <th>Ciudad</th>
+                            <th>Estado</th>
+                            <th>País</th>
+                            <th>Fecha de Registro</th>
+                            <th>Observaciones</th>
                             <th>Empresa</th>
                             <th>Especialidad</th>
                             <th>Área Laboral</th>
@@ -54,8 +63,17 @@
                                 <td><?php echo htmlspecialchars($empleado['APELLIDOMATERNO']); ?></td>
                                 <td><?php echo htmlspecialchars($empleado['FECHANACIMIENTO']); ?></td>
                                 <td><?php echo htmlspecialchars($empleado['CURP']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['RFC']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['NSS']); ?></td>
                                 <td><?php echo htmlspecialchars($empleado['TELMOVIL']); ?></td>
                                 <td><?php echo htmlspecialchars($empleado['EMAIL']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['DIRECCION']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['CODIGOPOSTAL']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['CIUDAD']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['ESTADORESIDENCIA']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['PAIS']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['FECHAREGISTRO']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['OBSERVACIONES']); ?></td>
                                 <td><?php echo htmlspecialchars($empleado['EMPRESA']); ?></td>
                                 <td><?php echo htmlspecialchars($empleado['ESPECIALIDAD']); ?></td>
                                 <td><?php echo htmlspecialchars($empleado['AREALABORAL']); ?></td>
