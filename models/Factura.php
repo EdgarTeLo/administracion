@@ -399,25 +399,25 @@ class Factura {
             if ($mimeType !== 'application/pdf') {
                 throw new \Exception("El archivo debe ser un PDF válido.");
             }
-
+    
             // Validar el tamaño del archivo (máximo 10 MB)
             $maxFileSize = 10 * 1024 * 1024; // 10 MB en bytes
             if (filesize($filePath) > $maxFileSize) {
                 throw new \Exception("El archivo excede el tamaño máximo permitido de 10 MB.");
             }
-
+    
             // Usar Smalot\PdfParser para extraer texto del PDF
             $parser = new Parser();
             $pdf = $parser->parseFile($filePath);
             $text = $pdf->getText();
-
+    
             // Extraer datos del PDF (ajusta según el formato real de tus PDFs)
             $numeroOc = '';
             $total = 0.00;
             $fechaEmision = '0000-01-01';
             $proveedor = '';
             $items = [];
-
+    
             // Ejemplo de extracción (ajusta según el formato real de tus PDFs)
             if (preg_match('/Número de OC:\s*(\S+)/i', $text, $match)) {
                 $numeroOc = $match[1];
@@ -431,7 +431,7 @@ class Factura {
             if (preg_match('/Proveedor:\s*([^\n]+)/i', $text, $match)) {
                 $proveedor = trim($match[1]);
             }
-
+    
             // Extraer ítems (ejemplo simplificado, ajusta según el formato real)
             $lines = explode("\n", $text);
             $itemsSection = false;
@@ -452,7 +452,7 @@ class Factura {
                     $itemsTotal += $item['importe'];
                 }
             }
-
+    
             // Validaciones de datos extraídos
             if (empty($numeroOc)) {
                 throw new \Exception("El número de OC es obligatorio y no se encontró en el PDF.");
@@ -480,7 +480,7 @@ class Factura {
             if (!preg_match('/^[A-Za-z\s]+$/', $proveedor)) {
                 throw new \Exception("El proveedor solo puede contener letras y espacios.");
             }
-
+    
             // Verificar duplicados
             $query = "SELECT COUNT(*) FROM ordenes_compra WHERE numero_oc = :numero_oc";
             $stmt = $this->db->prepare($query);
@@ -488,7 +488,7 @@ class Factura {
             if ($stmt->fetchColumn() > 0) {
                 throw new \Exception("Ya existe una orden de compra con el número {$numeroOc}.");
             }
-
+    
             // Validar ítems (si se extraen)
             if (!empty($items)) {
                 foreach ($items as $item) {
@@ -509,13 +509,13 @@ class Factura {
                         throw new \Exception("El importe del ítem ({$item['importe']}) no coincide con cantidad * precio unitario ({$calculatedImporte}).");
                     }
                 }
-
+    
                 // Validar que el total coincida con la suma de los ítems
                 if (abs($total - $itemsTotal) > 0.01) {
                     throw new \Exception("El total de la orden de compra ({$total}) no coincide con la suma de los ítems ({$itemsTotal}).");
                 }
             }
-
+    
             // Guardar la orden de compra
             $ordenCompra = [
                 'numero_oc' => $numeroOc,
@@ -524,7 +524,7 @@ class Factura {
                 'proveedor' => $proveedor
             ];
             $this->saveOrdenCompra($ordenCompra);
-
+    
             // Guardar ítems
             if (!empty($items)) {
                 foreach ($items as $item) {
@@ -538,7 +538,7 @@ class Factura {
                     $this->saveItemOrdenCompra($itemData);
                 }
             }
-
+    
             return true;
         } catch (\Exception $e) {
             return $e->getMessage();
@@ -696,13 +696,11 @@ class Factura {
                 }
     
                 return true;
-            } catch (\Exception $e) {
+            }} catch (\Exception $e) {
                 return $e->getMessage();
-            }
+            
         }
-
-
-
+    }
     public function crearFactura($factura) {
         try {
             $query = "
