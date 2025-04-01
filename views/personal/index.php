@@ -36,21 +36,41 @@
                             <th>Fecha de Nacimiento</th>
                             <th>CURP</th>
                             <th>RFC</th>
-                            <th>NSS</th>
-                            <th>Teléfono</th>
+                            <th>Teléfono Casa</th>
+                            <th>Teléfono Móvil</th>
                             <th>Email</th>
                             <th>Dirección</th>
-                            <th>Código Postal</th>
-                            <th>Ciudad</th>
-                            <th>Estado</th>
-                            <th>País</th>
-                            <th>Fecha de Registro</th>
-                            <th>Observaciones</th>
                             <th>Empresa</th>
-                            <th>Especialidad</th>
+                            <th>Puesto</th>
                             <th>Área Laboral</th>
+                            <th>Especialidad</th>
+                            <th>Sueldo IMSS</th>
+                            <th>Número IMSS</th>
+                            <th>Número Cuenta Banamex</th>
+                            <th>Supervisor</th>
                             <th>Fecha de Ingreso</th>
+                            <th>Inicio/Fin Contrato</th>
+                            <th>Vencimiento Contrato</th>
+                            <th>Renovación Contrato</th>
+                            <th>Aviso Fin Contrato</th>
+                            <th>Tipo Empleado</th>
+                            <th>Contrato Confidencialidad</th>
+                            <th>Estado Civil</th>
+                            <th>Motivo de Baja</th>
+                            <th>Sexo</th>
+                            <th>Ayuda Pasajes</th>
+                            <th>INE</th>
+                            <th>CURP Doc</th>
+                            <th>RFC Doc</th>
+                            <th>Comp. Domicilio</th>
+                            <th>Acta Nacimiento</th>
+                            <th>NSS Doc</th>
+                            <th>Contrato Doc</th>
+                            <th>CMC Doc</th>
+                            <th>Reglamento/Aviso</th>
+                            <th>Pagaré</th>
                             <th>Fecha de Baja</th>
+                            <th>Observaciones</th>
                             <th>Acciones</th>
                         </tr>
                     </thead>
@@ -63,22 +83,42 @@
                                 <td><?php echo htmlspecialchars($empleado['APELLIDOMATERNO']); ?></td>
                                 <td><?php echo htmlspecialchars($empleado['FECHANACIMIENTO']); ?></td>
                                 <td><?php echo htmlspecialchars($empleado['CURP']); ?></td>
-                                <td><?php echo htmlspecialchars($empleado['RFC']); ?></td>
-                                <td><?php echo htmlspecialchars($empleado['NSS']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['RFCP']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['TELCASA']); ?></td>
                                 <td><?php echo htmlspecialchars($empleado['TELMOVIL']); ?></td>
                                 <td><?php echo htmlspecialchars($empleado['EMAIL']); ?></td>
                                 <td><?php echo htmlspecialchars($empleado['DIRECCION']); ?></td>
-                                <td><?php echo htmlspecialchars($empleado['CODIGOPOSTAL']); ?></td>
-                                <td><?php echo htmlspecialchars($empleado['CIUDAD']); ?></td>
-                                <td><?php echo htmlspecialchars($empleado['ESTADORESIDENCIA']); ?></td>
-                                <td><?php echo htmlspecialchars($empleado['PAIS']); ?></td>
-                                <td><?php echo htmlspecialchars($empleado['FECHAREGISTRO']); ?></td>
-                                <td><?php echo htmlspecialchars($empleado['OBSERVACIONES']); ?></td>
-                                <td><?php echo htmlspecialchars($empleado['EMPRESA']); ?></td>
-                                <td><?php echo htmlspecialchars($empleado['ESPECIALIDAD']); ?></td>
-                                <td><?php echo htmlspecialchars($empleado['AREALABORAL']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['NOMBRE_EMPRESA']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['PUESTO']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['NOMBRE_AREALABORAL']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['NOMBRE_ESPECIALIDAD']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['SUELDOIMSS']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['NUMIMSS']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['NUMCTABANAMEX']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['SUPERVISOR']); ?></td>
                                 <td><?php echo htmlspecialchars($empleado['FECHAINGRESO']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['FECHAINICIOFINCONTRATO']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['VENCIMIENTOCONTRATO']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['RENOVACIONCONTRATO']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['AVISOFINDECONTRATO']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['TIPOEMPLEADO']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['FECHADECONTRATODECONFIDENCIALIDAD']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['ESTADOCIVIL'] == 1 ? 'Soltero(a)' : ($empleado['ESTADOCIVIL'] == 2 ? 'Casado(a)' : ($empleado['ESTADOCIVIL'] == 3 ? 'Divorciado(a)' : ($empleado['ESTADOCIVIL'] == 4 ? 'Viudo(a)' : ($empleado['ESTADOCIVIL'] == 5 ? 'Unión Libre' : 'N/A'))))); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['MOTIVODEBAJA']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['SEXO'] == 1 ? 'Masculino' : ($empleado['SEXO'] == 0 ? 'Femenino' : 'No especificado')); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['AYUDAPASAJESXDIA']); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['DOCINE'] ? 'Sí' : 'No'); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['DOCCURP'] ? 'Sí' : 'No'); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['DOCRFC'] ? 'Sí' : 'No'); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['DOCCOMPDOM'] ? 'Sí' : 'No'); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['DOCACTNAC'] ? 'Sí' : 'No'); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['DOCNSS'] ? 'Sí' : 'No'); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['DOCCONTRATO'] ? 'Sí' : 'No'); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['DOCCMC'] ? 'Sí' : 'No'); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['DOCREGLAYAVISO'] ? 'Sí' : 'No'); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['DOCPAGARE'] ? 'Sí' : 'No'); ?></td>
                                 <td><?php echo htmlspecialchars($empleado['FECHADEBAJA'] ?: 'N/A'); ?></td>
+                                <td><?php echo htmlspecialchars($empleado['OBSERVACIONES']); ?></td>
                                 <td>
                                     <a href="<?php echo $_ENV['APP_URL']; ?>/personal/editar/<?php echo $empleado['IDPERSONAL']; ?>" class="btn btn-warning btn-sm">Editar</a>
                                     <a href="<?php echo $_ENV['APP_URL']; ?>/personal/eliminar/<?php echo $empleado['IDPERSONAL']; ?>" class="btn btn-danger btn-sm" onclick="return confirm('¿Estás seguro de que deseas eliminar este empleado?');">Eliminar</a>

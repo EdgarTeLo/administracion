@@ -292,7 +292,7 @@ class Factura {
             $csv = Reader::createFromPath($filePath, 'r');
             $csv->setHeaderOffset(0);
             $records = $csv->getRecords();
-
+    
             foreach ($records as $record) {
                 $ordenCompra = [
                     'numero_oc' => $record['numero_oc'] ?? '',
@@ -300,10 +300,13 @@ class Factura {
                     'fecha_emision' => $record['fecha_emision'] ?? '0000-01-01',
                     'proveedor' => $record['proveedor'] ?? ''
                 ];
-
+    
                 // Validaciones
                 if (empty($ordenCompra['numero_oc'])) {
                     throw new \Exception("El número de OC es obligatorio.");
+                }
+                if (!preg_match('/^[A-Za-z0-9-]+$/', $ordenCompra['numero_oc'])) {
+                    throw new \Exception("El número de OC solo puede contener letras, números y guiones.");
                 }
                 if ($ordenCompra['total'] <= 0) {
                     throw new \Exception("El total debe ser mayor a 0.");
@@ -311,10 +314,24 @@ class Factura {
                 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $ordenCompra['fecha_emision'])) {
                     throw new \Exception("La fecha de emisión debe tener el formato YYYY-MM-DD.");
                 }
+                $fechaEmision = \DateTime::createFromFormat('Y-m-d', $ordenCompra['fecha_emision']);
+                if (!$fechaEmision || $fechaEmision->format('Y-m-d') !== $ordenCompra['fecha_emision']) {
+                    throw new \Exception("La fecha de emisión no es válida.");
+                }
+                $currentDate = new \DateTime();
+                if ($fechaEmision > $currentDate) {
+                    throw new \Exception("La fecha de emisión no puede ser una fecha futura.");
+                }
                 if (empty($ordenCompra['proveedor'])) {
                     throw new \Exception("El proveedor es obligatorio.");
                 }
-
+                if (strlen($ordenCompra['proveedor']) > 255) {
+                    throw new \Exception("El proveedor no puede exceder los 255 caracteres.");
+                }
+                if (!preg_match('/^[A-Za-z\s]+$/', $ordenCompra['proveedor'])) {
+                    throw new \Exception("El proveedor solo puede contener letras y espacios.");
+                }
+    
                 // Verificar duplicados
                 $query = "SELECT COUNT(*) FROM ordenes_compra WHERE numero_oc = :numero_oc";
                 $stmt = $this->db->prepare($query);
@@ -322,12 +339,13 @@ class Factura {
                 if ($stmt->fetchColumn() > 0) {
                     throw new \Exception("Ya existe una orden de compra con el número {$ordenCompra['numero_oc']}.");
                 }
-
+    
                 $this->saveOrdenCompra($ordenCompra);
-
+    
                 if (isset($record['items'])) {
                     $items = json_decode($record['items'], true);
                     if (is_array($items)) {
+                        $itemsTotal = 0.00;
                         foreach ($items as $item) {
                             $itemData = [
                                 'orden_compra_id' => $this->getLastInsertId(),
@@ -336,7 +354,7 @@ class Factura {
                                 'precio_unitario' => (float)($item['precio_unitario'] ?? 0.00),
                                 'importe' => (float)($item['importe'] ?? 0.00)
                             ];
-
+    
                             // Validaciones para ítems
                             if (empty($itemData['descripcion'])) {
                                 throw new \Exception("La descripción del ítem es obligatoria.");
@@ -350,13 +368,23 @@ class Factura {
                             if ($itemData['importe'] <= 0) {
                                 throw new \Exception("El importe del ítem debe ser mayor a 0.");
                             }
-
+                            $calculatedImporte = $itemData['cantidad'] * $itemData['precio_unitario'];
+                            if (abs($calculatedImporte - $itemData['importe']) > 0.01) {
+                                throw new \Exception("El importe del ítem ({$itemData['importe']}) no coincide con cantidad * precio unitario ({$calculatedImporte}).");
+                            }
+    
+                            $itemsTotal += $itemData['importe'];
                             $this->saveItemOrdenCompra($itemData);
+                        }
+    
+                        // Validar que el total coincida con la suma de los ítems
+                        if (abs($ordenCompra['total'] - $itemsTotal) > 0.01) {
+                            throw new \Exception("El total de la orden de compra ({$ordenCompra['total']}) no coincide con la suma de los ítems ({$itemsTotal}).");
                         }
                     }
                 }
             }
-
+    
             return true;
         } catch (\Exception $e) {
             return $e->getMessage();
@@ -372,13 +400,18 @@ class Factura {
                 throw new \Exception("El archivo debe ser un PDF válido.");
             }
 
+            // Validar el tamaño del archivo (máximo 10 MB)
+            $maxFileSize = 10 * 1024 * 1024; // 10 MB en bytes
+            if (filesize($filePath) > $maxFileSize) {
+                throw new \Exception("El archivo excede el tamaño máximo permitido de 10 MB.");
+            }
+
             // Usar Smalot\PdfParser para extraer texto del PDF
             $parser = new Parser();
             $pdf = $parser->parseFile($filePath);
             $text = $pdf->getText();
 
-            // Extraer datos del PDF (esto dependerá del formato del PDF)
-            // Ejemplo: Buscar patrones específicos en el texto
+            // Extraer datos del PDF (ajusta según el formato real de tus PDFs)
             $numeroOc = '';
             $total = 0.00;
             $fechaEmision = '0000-01-01';
@@ -402,24 +435,30 @@ class Factura {
             // Extraer ítems (ejemplo simplificado, ajusta según el formato real)
             $lines = explode("\n", $text);
             $itemsSection = false;
+            $itemsTotal = 0.00;
             foreach ($lines as $line) {
                 if (strpos($line, 'Ítems:') !== false) {
                     $itemsSection = true;
                     continue;
                 }
                 if ($itemsSection && preg_match('/(.+?)\s+(\d+\.\d+)\s+(\d+\.\d+)\s+(\d+\.\d+)/', $line, $match)) {
-                    $items[] = [
+                    $item = [
                         'descripcion' => trim($match[1]),
                         'cantidad' => (float)$match[2],
                         'precio_unitario' => (float)$match[3],
                         'importe' => (float)$match[4]
                     ];
+                    $items[] = $item;
+                    $itemsTotal += $item['importe'];
                 }
             }
 
-            // Validaciones
+            // Validaciones de datos extraídos
             if (empty($numeroOc)) {
                 throw new \Exception("El número de OC es obligatorio y no se encontró en el PDF.");
+            }
+            if (!preg_match('/^[A-Za-z0-9-]+$/', $numeroOc)) {
+                throw new \Exception("El número de OC solo puede contener letras, números y guiones.");
             }
             if ($total <= 0) {
                 throw new \Exception("El total debe ser mayor a 0 y no se encontró un valor válido en el PDF.");
@@ -427,8 +466,19 @@ class Factura {
             if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaEmision)) {
                 throw new \Exception("La fecha de emisión debe tener el formato YYYY-MM-DD y no se encontró un valor válido en el PDF.");
             }
+            $fechaEmisionDate = \DateTime::createFromFormat('Y-m-d', $fechaEmision);
+            if (!$fechaEmisionDate || $fechaEmisionDate->format('Y-m-d') !== $fechaEmision) {
+                throw new \Exception("La fecha de emisión no es válida.");
+            }
+            $currentDate = new \DateTime();
+            if ($fechaEmisionDate > $currentDate) {
+                throw new \Exception("La fecha de emisión no puede ser una fecha futura.");
+            }
             if (empty($proveedor)) {
                 throw new \Exception("El proveedor es obligatorio y no se encontró en el PDF.");
+            }
+            if (!preg_match('/^[A-Za-z\s]+$/', $proveedor)) {
+                throw new \Exception("El proveedor solo puede contener letras y espacios.");
             }
 
             // Verificar duplicados
@@ -437,6 +487,33 @@ class Factura {
             $stmt->execute([':numero_oc' => $numeroOc]);
             if ($stmt->fetchColumn() > 0) {
                 throw new \Exception("Ya existe una orden de compra con el número {$numeroOc}.");
+            }
+
+            // Validar ítems (si se extraen)
+            if (!empty($items)) {
+                foreach ($items as $item) {
+                    if (empty($item['descripcion'])) {
+                        throw new \Exception("La descripción del ítem es obligatoria.");
+                    }
+                    if ($item['cantidad'] <= 0) {
+                        throw new \Exception("La cantidad del ítem debe ser mayor a 0.");
+                    }
+                    if ($item['precio_unitario'] <= 0) {
+                        throw new \Exception("El precio unitario del ítem debe ser mayor a 0.");
+                    }
+                    if ($item['importe'] <= 0) {
+                        throw new \Exception("El importe del ítem debe ser mayor a 0.");
+                    }
+                    $calculatedImporte = $item['cantidad'] * $item['precio_unitario'];
+                    if (abs($calculatedImporte - $item['importe']) > 0.01) {
+                        throw new \Exception("El importe del ítem ({$item['importe']}) no coincide con cantidad * precio unitario ({$calculatedImporte}).");
+                    }
+                }
+
+                // Validar que el total coincida con la suma de los ítems
+                if (abs($total - $itemsTotal) > 0.01) {
+                    throw new \Exception("El total de la orden de compra ({$total}) no coincide con la suma de los ítems ({$itemsTotal}).");
+                }
             }
 
             // Guardar la orden de compra
@@ -451,20 +528,6 @@ class Factura {
             // Guardar ítems
             if (!empty($items)) {
                 foreach ($items as $item) {
-                    // Validaciones para ítems
-                    if (empty($item['descripcion'])) {
-                        throw new \Exception("La descripción del ítem es obligatoria.");
-                    }
-                    if ($item['cantidad'] <= 0) {
-                        throw new \Exception("La cantidad del ítem debe ser mayor a 0.");
-                    }
-                    if ($item['precio_unitario'] <= 0) {
-                        throw new \Exception("El precio unitario del ítem debe ser mayor a 0.");
-                    }
-                    if ($item['importe'] <= 0) {
-                        throw new \Exception("El importe del ítem debe ser mayor a 0.");
-                    }
-
                     $itemData = [
                         'orden_compra_id' => $this->getLastInsertId(),
                         'descripcion' => $item['descripcion'],
@@ -481,6 +544,164 @@ class Factura {
             return $e->getMessage();
         }
     }
+
+    public function processCsvFacturas($filePath) {
+        try {
+            $csv = Reader::createFromPath($filePath, 'r');
+            $csv->setHeaderOffset(0);
+            $records = $csv->getRecords();
+    
+            foreach ($records as $record) {
+                $factura = [
+                    'fecha' => $record['fecha'] ?? '0000-01-01',
+                    'fact' => $record['fact'] ?? '',
+                    'folio_fiscal' => $record['folio_fiscal'] ?? '',
+                    'cliente' => $record['cliente'] ?? '',
+                    'subtotal' => (float)($record['subtotal'] ?? 0.00),
+                    'iva' => (float)($record['iva'] ?? 0.00),
+                    'total' => (float)($record['total'] ?? 0.00),
+                    'fecha_pago' => $record['fecha_pago'] ?: null,
+                    'estado' => $record['estado'] ?? 'activa',
+                    'rfc_emisor' => $record['rfc_emisor'] ?? '',
+                    'rfc_receptor' => $record['rfc_receptor'] ?? '',
+                    'orden_compra' => $record['orden_compra'] ?: null
+                ];
+    
+                // Validaciones
+                if (empty($factura['fact'])) {
+                    throw new \Exception("El número de factura es obligatorio.");
+                }
+                if (!preg_match('/^[A-Za-z0-9-]+$/', $factura['fact'])) {
+                    throw new \Exception("El número de factura solo puede contener letras, números y guiones.");
+                }
+                if ($factura['subtotal'] < 0) {
+                    throw new \Exception("El subtotal no puede ser negativo.");
+                }
+                if ($factura['iva'] < 0) {
+                    throw new \Exception("El IVA no puede ser negativo.");
+                }
+                if ($factura['total'] <= 0) {
+                    throw new \Exception("El total debe ser mayor a 0.");
+                }
+                $calculatedTotal = $factura['subtotal'] + $factura['iva'];
+                if (abs($calculatedTotal - $factura['total']) > 0.01) {
+                    throw new \Exception("El total ({$factura['total']}) no coincide con la suma de subtotal + IVA ({$calculatedTotal}).");
+                }
+                if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $factura['fecha'])) {
+                    throw new \Exception("La fecha debe tener el formato YYYY-MM-DD.");
+                }
+                $fechaFactura = \DateTime::createFromFormat('Y-m-d', $factura['fecha']);
+                if (!$fechaFactura || $fechaFactura->format('Y-m-d') !== $factura['fecha']) {
+                    throw new \Exception("La fecha de la factura no es válida.");
+                }
+                if (!empty($factura['fecha_pago'])) {
+                    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $factura['fecha_pago'])) {
+                        throw new \Exception("La fecha de pago debe tener el formato YYYY-MM-DD.");
+                    }
+                    $fechaPago = \DateTime::createFromFormat('Y-m-d', $factura['fecha_pago']);
+                    if (!$fechaPago || $fechaPago->format('Y-m-d') !== $factura['fecha_pago']) {
+                        throw new \Exception("La fecha de pago no es válida.");
+                    }
+                    if ($fechaPago < $fechaFactura) {
+                        throw new \Exception("La fecha de pago no puede ser anterior a la fecha de la factura.");
+                    }
+                }
+                if (empty($factura['cliente'])) {
+                    throw new \Exception("El cliente es obligatorio.");
+                }
+                if (strlen($factura['cliente']) > 255) {
+                    throw new \Exception("El nombre del cliente no puede exceder los 255 caracteres.");
+                }
+                if (!in_array($factura['estado'], ['activa', 'cancelada'])) {
+                    throw new \Exception("El estado debe ser 'activa' o 'cancelada'.");
+                }
+                if (!empty($factura['folio_fiscal']) && !preg_match('/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i', $factura['folio_fiscal'])) {
+                    throw new \Exception("El folio fiscal debe tener el formato de un UUID (xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx).");
+                }
+                if (!empty($factura['rfc_emisor']) && !preg_match('/^[A-Z&Ñ]{3,4}[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])[A-Z0-9]{3}$/', $factura['rfc_emisor'])) {
+                    throw new \Exception("El RFC del emisor no tiene un formato válido.");
+                }
+                if (!empty($factura['rfc_receptor']) && !preg_match('/^[A-Z&Ñ]{3,4}[0-9]{2}(0[1-9]|1[0-2])(0[1-9]|[12][0-9]|3[01])[A-Z0-9]{3}$/', $factura['rfc_receptor'])) {
+                    throw new \Exception("El RFC del receptor no tiene un formato válido.");
+                }
+    
+                // Verificar duplicados
+                $query = "SELECT COUNT(*) FROM facturas WHERE fact = :fact";
+                $stmt = $this->db->prepare($query);
+                $stmt->execute([':fact' => $factura['fact']]);
+                if ($stmt->fetchColumn() > 0) {
+                    throw new \Exception("Ya existe una factura con el número {$factura['fact']}.");
+                }
+    
+                // Si hay una orden de compra, verificar que exista
+                if (!empty($factura['orden_compra'])) {
+                    $query = "SELECT COUNT(*) FROM ordenes_compra WHERE numero_oc = :numero_oc";
+                    $stmt = $this->db->prepare($query);
+                    $stmt->execute([':numero_oc' => $factura['orden_compra']]);
+                    if ($stmt->fetchColumn() == 0) {
+                        throw new \Exception("La orden de compra {$factura['orden_compra']} no existe.");
+                    }
+                }
+    
+                $this->saveFactura($factura);
+    
+                if (isset($record['items'])) {
+                    $items = json_decode($record['items'], true);
+                    if (is_array($items)) {
+                        $itemsTotal = 0.00;
+                        foreach ($items as $item) {
+                            $itemData = [
+                                'factura_id' => $this->getLastInsertId(),
+                                'clave_prod_serv' => $item['clave_prod_serv'] ?? '',
+                                'numero_identificacion' => $item['numero_identificacion'] ?? '',
+                                'cantidad' => (float)($item['cantidad'] ?? 0.00),
+                                'clave_unidad' => $item['clave_unidad'] ?? '',
+                                'descripcion_unidad' => $item['descripcion_unidad'] ?? '',
+                                'descripcion' => $item['descripcion'] ?? '',
+                                'precio_unitario' => (float)($item['precio_unitario'] ?? 0.00),
+                                'importe' => (float)($item['importe'] ?? 0.00),
+                                'importe_iva' => (float)($item['importe_iva'] ?? 0.00)
+                            ];
+    
+                            // Validaciones para ítems
+                            if (empty($itemData['descripcion'])) {
+                                throw new \Exception("La descripción del ítem es obligatoria.");
+                            }
+                            if ($itemData['cantidad'] <= 0) {
+                                throw new \Exception("La cantidad del ítem debe ser mayor a 0.");
+                            }
+                            if ($itemData['precio_unitario'] <= 0) {
+                                throw new \Exception("El precio unitario del ítem debe ser mayor a 0.");
+                            }
+                            if ($itemData['importe'] <= 0) {
+                                throw new \Exception("El importe del ítem debe ser mayor a 0.");
+                            }
+                            $calculatedImporte = $itemData['cantidad'] * $itemData['precio_unitario'];
+                            if (abs($calculatedImporte - $itemData['importe']) > 0.01) {
+                                throw new \Exception("El importe del ítem ({$itemData['importe']}) no coincide con cantidad * precio unitario ({$calculatedImporte}).");
+                            }
+                            if ($itemData['importe_iva'] < 0) {
+                                throw new \Exception("El importe de IVA del ítem no puede ser negativo.");
+                            }
+    
+                            $itemsTotal += $itemData['importe'] + $itemData['importe_iva'];
+                            $this->saveItemFactura($itemData);
+                        }
+    
+                        // Validar que el total de la factura coincida con la suma de los ítems
+                        if (abs($factura['total'] - $itemsTotal) > 0.01) {
+                            throw new \Exception("El total de la factura ({$factura['total']}) no coincide con la suma de los ítems ({$itemsTotal}).");
+                        }
+                    }
+                }
+    
+                return true;
+            } catch (\Exception $e) {
+                return $e->getMessage();
+            }
+        }
+
+
 
     public function crearFactura($factura) {
         try {
@@ -792,113 +1013,5 @@ class Factura {
 
     private function getLastInsertId() {
         return $this->db->lastInsertId();
-    }
-
-    public function processCsvFacturas($filePath) {
-        try {
-            $csv = Reader::createFromPath($filePath, 'r');
-            $csv->setHeaderOffset(0);
-            $records = $csv->getRecords();
-    
-            foreach ($records as $record) {
-                $factura = [
-                    'fecha' => $record['fecha'] ?? '0000-01-01',
-                    'fact' => $record['fact'] ?? '',
-                    'folio_fiscal' => $record['folio_fiscal'] ?? '',
-                    'cliente' => $record['cliente'] ?? '',
-                    'subtotal' => (float)($record['subtotal'] ?? 0.00),
-                    'iva' => (float)($record['iva'] ?? 0.00),
-                    'total' => (float)($record['total'] ?? 0.00),
-                    'fecha_pago' => $record['fecha_pago'] ?: null,
-                    'estado' => $record['estado'] ?? 'activa',
-                    'rfc_emisor' => $record['rfc_emisor'] ?? '',
-                    'rfc_receptor' => $record['rfc_receptor'] ?? '',
-                    'orden_compra' => $record['orden_compra'] ?: null
-                ];
-    
-                // Validaciones
-                if (empty($factura['fact'])) {
-                    throw new \Exception("El número de factura es obligatorio.");
-                }
-                if ($factura['subtotal'] < 0) {
-                    throw new \Exception("El subtotal no puede ser negativo.");
-                }
-                if ($factura['iva'] < 0) {
-                    throw new \Exception("El IVA no puede ser negativo.");
-                }
-                if ($factura['total'] <= 0) {
-                    throw new \Exception("El total debe ser mayor a 0.");
-                }
-                if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $factura['fecha'])) {
-                    throw new \Exception("La fecha debe tener el formato YYYY-MM-DD.");
-                }
-                if (empty($factura['cliente'])) {
-                    throw new \Exception("El cliente es obligatorio.");
-                }
-                if (!in_array($factura['estado'], ['activa', 'cancelada'])) {
-                    throw new \Exception("El estado debe ser 'activa' o 'cancelada'.");
-                }
-    
-                // Verificar duplicados
-                $query = "SELECT COUNT(*) FROM facturas WHERE fact = :fact";
-                $stmt = $this->db->prepare($query);
-                $stmt->execute([':fact' => $factura['fact']]);
-                if ($stmt->fetchColumn() > 0) {
-                    throw new \Exception("Ya existe una factura con el número {$factura['fact']}.");
-                }
-    
-                // Si hay una orden de compra, verificar que exista
-                if (!empty($factura['orden_compra'])) {
-                    $query = "SELECT COUNT(*) FROM ordenes_compra WHERE numero_oc = :numero_oc";
-                    $stmt = $this->db->prepare($query);
-                    $stmt->execute([':numero_oc' => $factura['orden_compra']]);
-                    if ($stmt->fetchColumn() == 0) {
-                        throw new \Exception("La orden de compra {$factura['orden_compra']} no existe.");
-                    }
-                }
-    
-                $this->saveFactura($factura);
-    
-                if (isset($record['items'])) {
-                    $items = json_decode($record['items'], true);
-                    if (is_array($items)) {
-                        foreach ($items as $item) {
-                            $itemData = [
-                                'factura_id' => $this->getLastInsertId(),
-                                'clave_prod_serv' => $item['clave_prod_serv'] ?? '',
-                                'numero_identificacion' => $item['numero_identificacion'] ?? '',
-                                'cantidad' => (float)($item['cantidad'] ?? 0.00),
-                                'clave_unidad' => $item['clave_unidad'] ?? '',
-                                'descripcion_unidad' => $item['descripcion_unidad'] ?? '',
-                                'descripcion' => $item['descripcion'] ?? '',
-                                'precio_unitario' => (float)($item['precio_unitario'] ?? 0.00),
-                                'importe' => (float)($item['importe'] ?? 0.00),
-                                'importe_iva' => (float)($item['importe_iva'] ?? 0.00)
-                            ];
-    
-                            // Validaciones para ítems
-                            if (empty($itemData['descripcion'])) {
-                                throw new \Exception("La descripción del ítem es obligatoria.");
-                            }
-                            if ($itemData['cantidad'] <= 0) {
-                                throw new \Exception("La cantidad del ítem debe ser mayor a 0.");
-                            }
-                            if ($itemData['precio_unitario'] <= 0) {
-                                throw new \Exception("El precio unitario del ítem debe ser mayor a 0.");
-                            }
-                            if ($itemData['importe'] <= 0) {
-                                throw new \Exception("El importe del ítem debe ser mayor a 0.");
-                            }
-    
-                            $this->saveItemFactura($itemData);
-                        }
-                    }
-                }
-            }
-    
-            return true;
-        } catch (\Exception $e) {
-            return $e->getMessage();
-        }
     }
 }
