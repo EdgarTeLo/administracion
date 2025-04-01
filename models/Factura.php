@@ -187,34 +187,40 @@ class Factura {
 
     public function processXml($filePath) {
         try {
+            // Validar que el archivo tenga contenido XML
+            $fileContent = file_get_contents($filePath);
+            if (empty($fileContent) || strpos($fileContent, '<?xml') !== 0) {
+                throw new \Exception("El archivo no tiene el formato XML esperado. Asegúrate de que sea un archivo XML válido con la estructura CFDI.");
+            }
+    
             $xml = simplexml_load_file($filePath);
             if ($xml === false) {
-                throw new \Exception("No se pudo leer el archivo XML.");
+                throw new \Exception("No se pudo leer el archivo XML. Asegúrate de que sea un archivo XML válido.");
             }
-
+    
             $namespaces = $xml->getNamespaces(true);
             if (!isset($namespaces['cfdi'])) {
                 throw new \Exception("El namespace 'cfdi' no está definido en el XML.");
             }
-
+    
             $cfdi = $xml->children($namespaces['cfdi']);
             $tfdNamespace = $namespaces['tfd'] ?? null;
             $tfd = null;
-
+    
             if ($tfdNamespace && isset($cfdi->Complemento)) {
                 $complemento = $cfdi->Complemento;
                 $tfd = $complemento->children($tfdNamespace)->TimbreFiscalDigital ?? null;
             }
-
+    
             if ($tfd === null) {
                 throw new \Exception("El XML no contiene un nodo TimbreFiscalDigital válido. Asegúrate de que sea un CFDI válido.");
             }
-
+    
             $folioFiscal = (string)($tfd->attributes()['UUID'] ?? '');
             if (empty($folioFiscal)) {
                 throw new \Exception("El UUID del TimbreFiscalDigital no está definido.");
             }
-
+    
             $factura = [
                 'fecha' => (string)($cfdi->attributes()['Fecha'] ?? '0000-01-01'),
                 'fact' => (string)($cfdi->attributes()['Folio'] ?? $folioFiscal),
@@ -228,18 +234,18 @@ class Factura {
                 'estado' => 'activa',
                 'orden_compra' => null
             ];
-
+    
             if (empty($factura['fact'])) {
                 $factura['fact'] = $folioFiscal;
             }
-
+    
             $query = "SELECT COUNT(*) FROM facturas WHERE fact = :fact";
             $stmt = $this->db->prepare($query);
             $stmt->execute([':fact' => $factura['fact']]);
             if ($stmt->fetchColumn() > 0) {
                 throw new \Exception("Ya existe una factura con el número {$factura['fact']}.");
             }
-
+    
             if (isset($cfdi->Impuestos->Traslados->Traslado)) {
                 foreach ($cfdi->Impuestos->Traslados->Traslado as $traslado) {
                     if ((string)$traslado->attributes()['Impuesto'] === '002') {
@@ -247,13 +253,13 @@ class Factura {
                     }
                 }
             }
-
+    
             $this->saveFactura($factura);
             $lastInsertId = $this->getLastInsertId();
             if (!$lastInsertId) {
                 throw new \Exception("No se pudo guardar la factura en la base de datos.");
             }
-
+    
             if (isset($cfdi->Conceptos->Concepto)) {
                 foreach ($cfdi->Conceptos->Concepto as $concepto) {
                     $item = [
@@ -268,7 +274,7 @@ class Factura {
                         'importe' => (float)($concepto->attributes()['Importe'] ?? 0.00),
                         'importe_iva' => 0.00
                     ];
-
+    
                     if (isset($concepto->Impuestos->Traslados->Traslado)) {
                         foreach ($concepto->Impuestos->Traslados->Traslado as $traslado) {
                             if ((string)$traslado->attributes()['Impuesto'] === '002') {
@@ -276,13 +282,15 @@ class Factura {
                             }
                         }
                     }
-
+    
                     $this->saveItemFactura($item);
                 }
             }
-
+    
             return true;
         } catch (\Exception $e) {
+            // Registrar el error en el log
+            $this->logError('processXml', $e->getMessage());
             return $e->getMessage();
         }
     }
