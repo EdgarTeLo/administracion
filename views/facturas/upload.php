@@ -6,6 +6,7 @@
     <title>Subir Facturas y Órdenes de Compra</title>
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/administracion/public/styles.css">
+    <script src="/administracion/public/js/scripts.js"></script>
 </head>
 <body>
     <?php include __DIR__ . '/../layouts/header.php'; ?>
