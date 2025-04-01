@@ -455,199 +455,123 @@ class Factura {
 
     public function processPdf($filePath) {
         try {
-            // Validar que el archivo sea un PDF
-            $fileInfo = new \finfo(FILEINFO_MIME_TYPE);
-            $mimeType = $fileInfo->file($filePath);
-            if ($mimeType !== 'application/pdf') {
-                throw new \Exception("El archivo debe ser un PDF válido.");
-            }
-    
-            // Validar el tamaño del archivo (máximo 10 MB)
-            $maxFileSize = 10 * 1024 * 1024; // 10 MB en bytes
-            if (filesize($filePath) > $maxFileSize) {
-                throw new \Exception("El archivo excede el tamaño máximo permitido de 10 MB.");
-            }
-    
-            // Usar Smalot\PdfParser para extraer texto del PDF
-            $parser = new Parser();
+            $parser = new \Smalot\PdfParser\Parser();
             $pdf = $parser->parseFile($filePath);
             $text = $pdf->getText();
     
-            // Validar que el PDF no esté vacío
-            if (empty(trim($text))) {
-                throw new \Exception("El PDF está vacío o no contiene texto legible.");
+            // Patrones para buscar datos en el PDF (más flexibles)
+            $numeroOc = null;
+            $total = null;
+            $fecha = null;
+            $fact = null;
+            $folioFiscal = null;
+            $cliente = null;
+            $subtotal = null;
+            $iva = null;
+    
+            // Buscar número de OC
+            if (preg_match('/(?:Número de OC|Orden de Compra|OC|No\. OC)\s*[:#-]?\s*([A-Za-z0-9-]+)/i', $text, $matches)) {
+                $numeroOc = trim($matches[1]);
             }
     
-            // Extraer datos del PDF (hacer la extracción más flexible)
-            $numeroOc = '';
-            $total = 0.00;
-            $fechaEmision = '0000-01-01';
-            $proveedor = '';
-            $items = [];
-    
-            // Intentar diferentes formatos para el número de OC
-            $ocPatterns = [
-                '/(?:Número de OC|OC|Orden de Compra|Order Number)[:\s]*([A-Za-z0-9-]+)/i',
-                '/^([A-Za-z0-9-]+)/', // Primer valor en el documento
-                '/OC\s*([A-Za-z0-9-]+)/i'
-            ];
-            foreach ($ocPatterns as $pattern) {
-                if (preg_match($pattern, $text, $match)) {
-                    $numeroOc = $match[1];
-                    break;
-                }
+            // Buscar total
+            if (preg_match('/(?:Total|Importe Total|Monto Total)\s*[:#-]?\s*\$?\s*([\d,]+\.?\d*)/i', $text, $matches)) {
+                $total = (float)str_replace(',', '', $matches[1]);
             }
     
-            // Intentar diferentes formatos para el total
-            $totalPatterns = [
-                '/Total[:\s]*(\d+\.\d+)/i',
-                '/Monto[:\s]*(\d+\.\d+)/i',
-                '/Amount[:\s]*(\d+\.\d+)/i'
-            ];
-            foreach ($totalPatterns as $pattern) {
-                if (preg_match($pattern, $text, $match)) {
-                    $total = (float)$match[1];
-                    break;
-                }
+            // Buscar fecha
+            if (preg_match('/(?:Fecha|Date)\s*[:#-]?\s*(\d{2}\/\d{2}\/\d{4})/i', $text, $matches)) {
+                $fecha = $matches[1];
             }
     
-            // Intentar diferentes formatos para la fecha de emisión
-            $fechaPatterns = [
-                '/(?:Fecha de Emisión|Fecha|Date|Emission Date)[:\s]*(\d{4}-\d{2}-\d{2})/i',
-                '/(\d{4}-\d{2}-\d{2})/' // Cualquier fecha en formato YYYY-MM-DD
-            ];
-            foreach ($fechaPatterns as $pattern) {
-                if (preg_match($pattern, $text, $match)) {
-                    $fechaEmision = $match[1];
-                    break;
-                }
+            // Buscar número de factura
+            if (preg_match('/(?:Factura|Fact\.|No\. Factura)\s*[:#-]?\s*([A-Za-z0-9-]+)/i', $text, $matches)) {
+                $fact = trim($matches[1]);
             }
     
-            // Intentar diferentes formatos para el proveedor
-            $proveedorPatterns = [
-                '/(?:Proveedor|Cliente|Supplier|Vendor)[:\s]*([^\n]+)/i',
-                '/([A-Za-z\s]+)$/i' // Última línea del documento
-            ];
-            foreach ($proveedorPatterns as $pattern) {
-                if (preg_match($pattern, $text, $match)) {
-                    $proveedor = trim($match[1]);
-                    break;
-                }
+            // Buscar folio fiscal
+            if (preg_match('/(?:Folio Fiscal|UUID)\s*[:#-]?\s*([0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})/i', $text, $matches)) {
+                $folioFiscal = trim($matches[1]);
             }
     
-            // Extraer ítems (ejemplo simplificado, ajusta según el formato real)
-            $lines = explode("\n", $text);
-            $itemsSection = false;
-            $itemsTotal = 0.00;
-            foreach ($lines as $line) {
-                if (preg_match('/(?:Ítems|Detalles|Items|Line Items):/i', $line)) {
-                    $itemsSection = true;
-                    continue;
-                }
-                if ($itemsSection && preg_match('/(.+?)\s+(\d+\.\d+)\s+(\d+\.\d+)\s+(\d+\.\d+)/', $line, $match)) {
-                    $item = [
-                        'descripcion' => trim($match[1]),
-                        'cantidad' => (float)$match[2],
-                        'precio_unitario' => (float)$match[3],
-                        'importe' => (float)$match[4]
-                    ];
-                    $items[] = $item;
-                    $itemsTotal += $item['importe'];
-                }
+            // Buscar cliente
+            if (preg_match('/(?:Cliente|Razón Social|Nombre)\s*[:#-]?\s*([^\n]+)/i', $text, $matches)) {
+                $cliente = trim($matches[1]);
             }
     
-            // Validaciones de datos extraídos
+            // Buscar subtotal
+            if (preg_match('/(?:Subtotal|Importe)\s*[:#-]?\s*\$?\s*([\d,]+\.?\d*)/i', $text, $matches)) {
+                $subtotal = (float)str_replace(',', '', $matches[1]);
+            }
+    
+            // Buscar IVA
+            if (preg_match('/(?:IVA|Impuesto|Tax)\s*[:#-]?\s*\$?\s*([\d,]+\.?\d*)/i', $text, $matches)) {
+                $iva = (float)str_replace(',', '', $matches[1]);
+            }
+    
+            // Validaciones
             if (empty($numeroOc)) {
-                throw new \Exception("El número de OC es obligatorio y no se encontró en el PDF. Asegúrate de que el PDF contenga 'Número de OC:', 'OC:', 'Orden de Compra:', o un número al inicio del documento.");
+                // Hacer que el número de OC sea opcional
+                $numeroOc = null;
             }
-            if (!preg_match('/^[A-Za-z0-9-]+$/', $numeroOc)) {
-                throw new \Exception("El número de OC solo puede contener letras, números y guiones.");
+            if (empty($total)) {
+                throw new \Exception("El total es obligatorio y no se encontró en el PDF.");
             }
-            if ($total <= 0) {
-                throw new \Exception("El total debe ser mayor a 0 y no se encontró un valor válido en el PDF. Asegúrate de que el PDF contenga 'Total:', 'Monto:', o 'Amount:'.");
+            if (empty($fecha)) {
+                throw new \Exception("La fecha es obligatoria y no se encontró en el PDF.");
             }
-            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaEmision)) {
-                throw new \Exception("La fecha de emisión debe tener el formato YYYY-MM-DD y no se encontró un valor válido en el PDF. Asegúrate de que el PDF contenga 'Fecha de Emisión:', 'Fecha:', o 'Date:'.");
+            if (empty($fact)) {
+                throw new \Exception("El número de factura es obligatorio y no se encontró en el PDF.");
             }
-            $fechaEmisionDate = \DateTime::createFromFormat('Y-m-d', $fechaEmision);
-            if (!$fechaEmisionDate || $fechaEmisionDate->format('Y-m-d') !== $fechaEmision) {
-                throw new \Exception("La fecha de emisión no es válida.");
+            if (empty($cliente)) {
+                throw new \Exception("El cliente es obligatorio y no se encontró en el PDF.");
             }
-            $currentDate = new \DateTime();
-            if ($fechaEmisionDate > $currentDate) {
-                throw new \Exception("La fecha de emisión no puede ser una fecha futura.");
+    
+            // Construir el array de factura
+            $factura = [
+                'fecha' => $fecha,
+                'fact' => $fact,
+                'folio_fiscal' => $folioFiscal ?? '',
+                'cliente' => $cliente,
+                'subtotal' => $subtotal ?? ($total - ($iva ?? 0)),
+                'iva' => $iva ?? 0,
+                'total' => $total,
+                'fecha_pago' => null,
+                'estado' => 'activa',
+                'rfc_emisor' => '',
+                'rfc_receptor' => '',
+                'orden_compra' => $numeroOc,
+            ];
+    
+            // Validar y formatear la fecha
+            $fechaFactura = \DateTime::createFromFormat('d/m/Y', $factura['fecha']);
+            if (!$fechaFactura || $fechaFactura->format('d/m/Y') !== $factura['fecha']) {
+                throw new \Exception("La fecha del PDF no es válida o no tiene el formato DD/MM/YYYY.");
             }
-            if (empty($proveedor)) {
-                throw new \Exception("El proveedor es obligatorio y no se encontró en el PDF. Asegúrate de que el PDF contenga 'Proveedor:', 'Cliente:', 'Supplier:', o 'Vendor:'.");
-            }
-            if (!preg_match('/^[A-Za-z\s]+$/', $proveedor)) {
-                throw new \Exception("El proveedor solo puede contener letras y espacios.");
-            }
+            $factura['fecha'] = $fechaFactura->format('Y-m-d');
     
             // Verificar duplicados
-            $query = "SELECT COUNT(*) FROM ordenes_compra WHERE numero_oc = :numero_oc";
+            $query = "SELECT COUNT(*) FROM facturas WHERE fact = :fact";
             $stmt = $this->db->prepare($query);
-            if (!$stmt) {
-                throw new \Exception("Error al preparar la consulta para verificar duplicados.");
-            }
-            $stmt->execute([':numero_oc' => $numeroOc]);
+            $stmt->execute([':fact' => $factura['fact']]);
             if ($stmt->fetchColumn() > 0) {
-                throw new \Exception("Ya existe una orden de compra con el número {$numeroOc}.");
+                throw new \Exception("Ya existe una factura con el número {$factura['fact']}.");
             }
     
-            // Validar ítems (si se extraen)
-            if (!empty($items)) {
-                foreach ($items as $item) {
-                    if (empty($item['descripcion'])) {
-                        throw new \Exception("La descripción del ítem es obligatoria.");
-                    }
-                    if ($item['cantidad'] <= 0) {
-                        throw new \Exception("La cantidad del ítem debe ser mayor a 0.");
-                    }
-                    if ($item['precio_unitario'] <= 0) {
-                        throw new \Exception("El precio unitario del ítem debe ser mayor a 0.");
-                    }
-                    if ($item['importe'] <= 0) {
-                        throw new \Exception("El importe del ítem debe ser mayor a 0.");
-                    }
-                    $calculatedImporte = $item['cantidad'] * $item['precio_unitario'];
-                    if (abs($calculatedImporte - $item['importe']) > 0.01) {
-                        throw new \Exception("El importe del ítem ({$item['importe']}) no coincide con cantidad * precio unitario ({$calculatedImporte}).");
-                    }
-                }
-    
-                // Validar que el total coincida con la suma de los ítems
-                if (abs($total - $itemsTotal) > 0.01) {
-                    throw new \Exception("El total de la orden de compra ({$total}) no coincide con la suma de los ítems ({$itemsTotal}).");
+            // Si hay una orden de compra, verificar que exista
+            if (!empty($factura['orden_compra'])) {
+                $query = "SELECT COUNT(*) FROM ordenes_compra WHERE numero_oc = :numero_oc";
+                $stmt = $this->db->prepare($query);
+                $stmt->execute([':numero_oc' => $factura['orden_compra']]);
+                if ($stmt->fetchColumn() == 0) {
+                    throw new \Exception("La orden de compra {$factura['orden_compra']} no existe.");
                 }
             }
     
-            // Guardar la orden de compra
-            $ordenCompra = [
-                'numero_oc' => $numeroOc,
-                'total' => $total,
-                'fecha_emision' => $fechaEmision,
-                'proveedor' => $proveedor
-            ];
-            $this->saveOrdenCompra($ordenCompra);
-    
-            // Guardar ítems
-            if (!empty($items)) {
-                foreach ($items as $item) {
-                    $itemData = [
-                        'orden_compra_id' => $this->getLastInsertId(),
-                        'descripcion' => $item['descripcion'],
-                        'cantidad' => $item['cantidad'],
-                        'precio_unitario' => $item['precio_unitario'],
-                        'importe' => $item['importe']
-                    ];
-                    $this->saveItemOrdenCompra($itemData);
-                }
-            }
+            $this->saveFactura($factura);
     
             return true;
         } catch (\Exception $e) {
-            // Registrar el error en el log
             $this->logError('processPdf', $e->getMessage());
             return $e->getMessage();
         }
