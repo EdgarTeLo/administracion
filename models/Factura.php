@@ -292,13 +292,50 @@ class Factura {
             $csv = Reader::createFromPath($filePath, 'r');
             $csv->setHeaderOffset(0);
             $headers = $csv->getHeader();
-            $requiredHeaders = ['numero_oc', 'total', 'fecha_emision', 'proveedor'];
+            $possibleOcHeaders = ['numero_oc', 'oc_number', 'order_number', 'numero_orden', 'oc'];
+            $possibleTotalHeaders = ['total', 'amount', 'monto'];
+            $possibleFechaHeaders = ['fecha_emision', 'fecha', 'date', 'emission_date'];
+            $possibleProveedorHeaders = ['proveedor', 'supplier', 'vendor'];
+            $possibleItemsHeaders = ['items', 'detalles', 'line_items'];
+    
+            // Buscar las columnas esperadas
+            $ocHeader = null;
+            $totalHeader = null;
+            $fechaHeader = null;
+            $proveedorHeader = null;
+            $itemsHeader = null;
+    
+            foreach ($headers as $header) {
+                $headerLower = strtolower($header);
+                if (is_null($ocHeader) && in_array($headerLower, array_map('strtolower', $possibleOcHeaders))) {
+                    $ocHeader = $header;
+                }
+                if (is_null($totalHeader) && in_array($headerLower, array_map('strtolower', $possibleTotalHeaders))) {
+                    $totalHeader = $header;
+                }
+                if (is_null($fechaHeader) && in_array($headerLower, array_map('strtolower', $possibleFechaHeaders))) {
+                    $fechaHeader = $header;
+                }
+                if (is_null($proveedorHeader) && in_array($headerLower, array_map('strtolower', $possibleProveedorHeaders))) {
+                    $proveedorHeader = $header;
+                }
+                if (is_null($itemsHeader) && in_array($headerLower, array_map('strtolower', $possibleItemsHeaders))) {
+                    $itemsHeader = $header;
+                }
+            }
     
             // Validar que las columnas requeridas estén presentes
-            foreach ($requiredHeaders as $header) {
-                if (!in_array($header, $headers)) {
-                    throw new \Exception("El archivo CSV debe contener la columna '$header'.");
-                }
+            if (is_null($ocHeader)) {
+                throw new \Exception("No se encontró una columna para el número de OC. Columnas esperadas: " . implode(', ', $possibleOcHeaders));
+            }
+            if (is_null($totalHeader)) {
+                throw new \Exception("No se encontró una columna para el total. Columnas esperadas: " . implode(', ', $possibleTotalHeaders));
+            }
+            if (is_null($fechaHeader)) {
+                throw new \Exception("No se encontró una columna para la fecha de emisión. Columnas esperadas: " . implode(', ', $possibleFechaHeaders));
+            }
+            if (is_null($proveedorHeader)) {
+                throw new \Exception("No se encontró una columna para el proveedor. Columnas esperadas: " . implode(', ', $possibleProveedorHeaders));
             }
     
             $records = $csv->getRecords();
@@ -307,10 +344,10 @@ class Factura {
             foreach ($records as $record) {
                 $rowNumber++;
                 $ordenCompra = [
-                    'numero_oc' => $record['numero_oc'] ?? '',
-                    'total' => (float)($record['total'] ?? 0.00),
-                    'fecha_emision' => $record['fecha_emision'] ?? '0000-01-01',
-                    'proveedor' => $record['proveedor'] ?? ''
+                    'numero_oc' => $record[$ocHeader] ?? '',
+                    'total' => (float)($record[$totalHeader] ?? 0.00),
+                    'fecha_emision' => $record[$fechaHeader] ?? '0000-01-01',
+                    'proveedor' => $record[$proveedorHeader] ?? ''
                 ];
     
                 // Validaciones
@@ -347,6 +384,9 @@ class Factura {
                 // Verificar duplicados
                 $query = "SELECT COUNT(*) FROM ordenes_compra WHERE numero_oc = :numero_oc";
                 $stmt = $this->db->prepare($query);
+                if (!$stmt) {
+                    throw new \Exception("Error al preparar la consulta para verificar duplicados en la fila $rowNumber.");
+                }
                 $stmt->execute([':numero_oc' => $ordenCompra['numero_oc']]);
                 if ($stmt->fetchColumn() > 0) {
                     throw new \Exception("Ya existe una orden de compra con el número {$ordenCompra['numero_oc']} en la fila $rowNumber.");
@@ -354,8 +394,8 @@ class Factura {
     
                 $this->saveOrdenCompra($ordenCompra);
     
-                if (isset($record['items']) && !empty($record['items'])) {
-                    $items = json_decode($record['items'], true);
+                if (isset($record[$itemsHeader]) && !empty($record[$itemsHeader])) {
+                    $items = json_decode($record[$itemsHeader], true);
                     if (is_array($items)) {
                         $itemsTotal = 0.00;
                         foreach ($items as $item) {
@@ -438,20 +478,53 @@ class Factura {
             $items = [];
     
             // Intentar diferentes formatos para el número de OC
-            if (preg_match('/(?:Número de OC|OC|Orden de Compra)[:\s]*([A-Za-z0-9-]+)/i', $text, $match)) {
-                $numeroOc = $match[1];
-            } elseif (preg_match('/^([A-Za-z0-9-]+)/', trim($text), $match)) {
-                // Si no se encuentra un prefijo, asumir que el primer valor es el número de OC
-                $numeroOc = $match[1];
+            $ocPatterns = [
+                '/(?:Número de OC|OC|Orden de Compra|Order Number)[:\s]*([A-Za-z0-9-]+)/i',
+                '/^([A-Za-z0-9-]+)/', // Primer valor en el documento
+                '/OC\s*([A-Za-z0-9-]+)/i'
+            ];
+            foreach ($ocPatterns as $pattern) {
+                if (preg_match($pattern, $text, $match)) {
+                    $numeroOc = $match[1];
+                    break;
+                }
             }
-            if (preg_match('/Total[:\s]*(\d+\.\d+)/i', $text, $match)) {
-                $total = (float)$match[1];
+    
+            // Intentar diferentes formatos para el total
+            $totalPatterns = [
+                '/Total[:\s]*(\d+\.\d+)/i',
+                '/Monto[:\s]*(\d+\.\d+)/i',
+                '/Amount[:\s]*(\d+\.\d+)/i'
+            ];
+            foreach ($totalPatterns as $pattern) {
+                if (preg_match($pattern, $text, $match)) {
+                    $total = (float)$match[1];
+                    break;
+                }
             }
-            if (preg_match('/(?:Fecha de Emisión|Fecha)[:\s]*(\d{4}-\d{2}-\d{2})/i', $text, $match)) {
-                $fechaEmision = $match[1];
+    
+            // Intentar diferentes formatos para la fecha de emisión
+            $fechaPatterns = [
+                '/(?:Fecha de Emisión|Fecha|Date|Emission Date)[:\s]*(\d{4}-\d{2}-\d{2})/i',
+                '/(\d{4}-\d{2}-\d{2})/' // Cualquier fecha en formato YYYY-MM-DD
+            ];
+            foreach ($fechaPatterns as $pattern) {
+                if (preg_match($pattern, $text, $match)) {
+                    $fechaEmision = $match[1];
+                    break;
+                }
             }
-            if (preg_match('/(?:Proveedor|Cliente)[:\s]*([^\n]+)/i', $text, $match)) {
-                $proveedor = trim($match[1]);
+    
+            // Intentar diferentes formatos para el proveedor
+            $proveedorPatterns = [
+                '/(?:Proveedor|Cliente|Supplier|Vendor)[:\s]*([^\n]+)/i',
+                '/([A-Za-z\s]+)$/i' // Última línea del documento
+            ];
+            foreach ($proveedorPatterns as $pattern) {
+                if (preg_match($pattern, $text, $match)) {
+                    $proveedor = trim($match[1]);
+                    break;
+                }
             }
     
             // Extraer ítems (ejemplo simplificado, ajusta según el formato real)
@@ -459,7 +532,7 @@ class Factura {
             $itemsSection = false;
             $itemsTotal = 0.00;
             foreach ($lines as $line) {
-                if (strpos($line, 'Ítems:') !== false) {
+                if (preg_match('/(?:Ítems|Detalles|Items|Line Items):/i', $line)) {
                     $itemsSection = true;
                     continue;
                 }
@@ -477,16 +550,16 @@ class Factura {
     
             // Validaciones de datos extraídos
             if (empty($numeroOc)) {
-                throw new \Exception("El número de OC es obligatorio y no se encontró en el PDF. Asegúrate de que el PDF contenga 'Número de OC:', 'OC:', o 'Orden de Compra:' seguido del número.");
+                throw new \Exception("El número de OC es obligatorio y no se encontró en el PDF. Asegúrate de que el PDF contenga 'Número de OC:', 'OC:', 'Orden de Compra:', o un número al inicio del documento.");
             }
             if (!preg_match('/^[A-Za-z0-9-]+$/', $numeroOc)) {
                 throw new \Exception("El número de OC solo puede contener letras, números y guiones.");
             }
             if ($total <= 0) {
-                throw new \Exception("El total debe ser mayor a 0 y no se encontró un valor válido en el PDF.");
+                throw new \Exception("El total debe ser mayor a 0 y no se encontró un valor válido en el PDF. Asegúrate de que el PDF contenga 'Total:', 'Monto:', o 'Amount:'.");
             }
             if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $fechaEmision)) {
-                throw new \Exception("La fecha de emisión debe tener el formato YYYY-MM-DD y no se encontró un valor válido en el PDF.");
+                throw new \Exception("La fecha de emisión debe tener el formato YYYY-MM-DD y no se encontró un valor válido en el PDF. Asegúrate de que el PDF contenga 'Fecha de Emisión:', 'Fecha:', o 'Date:'.");
             }
             $fechaEmisionDate = \DateTime::createFromFormat('Y-m-d', $fechaEmision);
             if (!$fechaEmisionDate || $fechaEmisionDate->format('Y-m-d') !== $fechaEmision) {
@@ -497,7 +570,7 @@ class Factura {
                 throw new \Exception("La fecha de emisión no puede ser una fecha futura.");
             }
             if (empty($proveedor)) {
-                throw new \Exception("El proveedor es obligatorio y no se encontró en el PDF.");
+                throw new \Exception("El proveedor es obligatorio y no se encontró en el PDF. Asegúrate de que el PDF contenga 'Proveedor:', 'Cliente:', 'Supplier:', o 'Vendor:'.");
             }
             if (!preg_match('/^[A-Za-z\s]+$/', $proveedor)) {
                 throw new \Exception("El proveedor solo puede contener letras y espacios.");
@@ -506,6 +579,9 @@ class Factura {
             // Verificar duplicados
             $query = "SELECT COUNT(*) FROM ordenes_compra WHERE numero_oc = :numero_oc";
             $stmt = $this->db->prepare($query);
+            if (!$stmt) {
+                throw new \Exception("Error al preparar la consulta para verificar duplicados.");
+            }
             $stmt->execute([':numero_oc' => $numeroOc]);
             if ($stmt->fetchColumn() > 0) {
                 throw new \Exception("Ya existe una orden de compra con el número {$numeroOc}.");
